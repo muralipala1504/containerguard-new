@@ -9,7 +9,7 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 print_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 print_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
@@ -133,9 +133,11 @@ else
     exit 1
 fi
 
+# STEP 8: DASHBOARD AND FIREWALL (ONLY IF INSTALLED)
 if [[ "$DASHBOARD_OPTION" == "1" ]]; then
     print_info "Starting dashboard and configuring firewall..."
-    
+
+    # Start firewalld if needed
     if command -v systemctl &> /dev/null; then
         if ! systemctl is-active --quiet firewalld 2>/dev/null; then
             print_info "Starting firewalld..."
@@ -143,7 +145,8 @@ if [[ "$DASHBOARD_OPTION" == "1" ]]; then
             sudo systemctl enable firewalld 2>/dev/null || true
         fi
     fi
-    
+
+    # Open port 7860
     if command -v firewall-cmd &> /dev/null; then
         if systemctl is-active --quiet firewalld 2>/dev/null; then
             sudo firewall-cmd --add-port=7860/tcp --permanent 2>/dev/null || true
@@ -158,14 +161,15 @@ if [[ "$DASHBOARD_OPTION" == "1" ]]; then
     else
         print_warning "No firewall detected - please open port 7860 manually"
     fi
-    
+
+    # Start dashboard
     print_info "Starting dashboard in background..."
     cd "$INSTALL_DIR"
     pkill -f "dashboard/app.py" 2>/dev/null || true
     nohup venv/bin/python dashboard/app.py > dashboard.log 2>&1 &
     DASHBOARD_PID=$!
     sleep 2
-    
+
     if ps -p $DASHBOARD_PID > /dev/null 2>&1; then
         print_success "Dashboard started (PID: $DASHBOARD_PID) on http://$(hostname -I | awk '{print $1}'):7860"
     else
