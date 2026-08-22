@@ -10,10 +10,11 @@ Technical deep dive into ContainerGuard's design, components, and data flow.
 2. [High-Level Architecture](#high-level-architecture)
 3. [Component Breakdown](#component-breakdown)
 4. [Data Flow](#data-flow)
-5. [Decision Engine](#decision-engine)
-6. [Security Model](#security-model)
-7. [Performance Considerations](#performance-considerations)
-8. [Extending ContainerGuard](#extending-containerguard)
+5. [Persistent History](#persistent-history)
+6. [Decision Engine](#decision-engine)
+7. [Security Model](#security-model)
+8. [Performance Considerations](#performance-considerations)
+9. [Extending ContainerGuard](#extending-containerguard)
 
 ---
 
@@ -30,14 +31,12 @@ ContainerGuard is a **lightweight, autonomous monitoring agent** designed to run
 | **Observability** | Full visibility into agent decisions and actions |
 | **Extensibility** | Easy to add new actions and rules |
 | **Security** | Runs with least privilege, secure communication |
+| **Persistence** | All actions logged to JSON for audit |
 
 ---
 
 ## High-Level Architecture
 
----
-
-## High-Level Architecture
 ┌─────────────────────────────────────────────────────────────────────────┐
 │ ContainerGuard System │
 │ │
@@ -59,16 +58,16 @@ ContainerGuard is a **lightweight, autonomous monitoring agent** designed to run
 │ │ │ │ │ │ │
 │ │ ▼ ▼ ▼ │ │
 │ │ ┌─────────────────────────────────────────────────┐ │ │
-│ │ │ State Store (SQLite) │ │ │
-│ │ │ - Container status history │ │ │
-│ │ │ - Action logs │ │ │
-│ │ │ - Agent configuration │ │ │
+│ │ │ Persistent History (JSON) │ │ │
+│ │ │ /tmp/containerguard_history.json │ │ │
+│ │ │ - All agent actions │ │ │
+│ │ │ - Timestamps │ │ │
+│ │ │ - Success/failure status │ │ │
 │ │ └─────────────────────────────────────────────────┘ │ │
 │ └─────────────────────────────────────────────────────────────────┘ │
 │ │ │
 │ ┌─────────────────────────────────────────────────────────────────┐ │
 │ │ Integration Layer │ │
-│ │ │ │
 │ │ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ │ │
 │ │ │ Docker │ │ Alerts │ │ Metrics │ │ │
 │ │ │ SDK │ │ (Slack) │ │ (Prometheus)│ │ │
@@ -105,17 +104,35 @@ class ContainerGuardAgent:
         # 1. Get all containers
         # 2. Check each container's status
         # 3. If exited → trigger restart
-        # 4. Log the action
+        # 4. Log the action to JSON
 2. Action Executor (agent/actions.py)
-Executes actions on containers:
+Executes actions on containers and logs to persistent JSON:
 
-Action	Description
-restart_container()	Restarts a stopped/exited container
-stop_container()	Stops a running container
-remove_container()	Removes a container permanently
-cleanup_images()	Removes unused Docker images
-cleanup_volumes()	Removes unused volumes
-3. Continuous Runner (agent/runner.py)
+Action	Description	History Entry
+restart_container()	Restarts a stopped/exited container	{"action":"restart","container":"name","status":"success"}
+stop_container()	Stops a running container	{"action":"stop","container":"name","status":"success"}
+cleanup_exited()	Removes exited containers	{"action":"cleanup","containers":[...]}
+3. Persistent History (/tmp/containerguard_history.json)
+All actions are logged to a shared JSON file:
+[
+  {
+    "timestamp": "2026-08-24T05:35:57.986681",
+    "action": "restart",
+    "container": "test-postgres",
+    "status": "success"
+  }
+]
+Why JSON?
+
+✅ Human-readable
+
+✅ Shared between agent and dashboard
+
+✅ Survives service restarts
+
+✅ Easy to parse and extend
+
+4. Continuous Runner (agent/runner.py)
 Manages the agent's lifecycle:
 
 Infinite Loop: Runs the agent every N seconds
@@ -126,18 +143,18 @@ Error Recovery: Continues running even if a cycle fails
 
 Logging: Writes structured logs to file
 
-4. Gradio Dashboard (dashboard/app.py)
+5. Gradio Dashboard (dashboard/app.py)
 Web-based user interface:
 
 Status View: Real-time container status
 
-Action History: Timeline of agent actions
+Action History: Reads from persistent JSON
 
 Manual Controls: Restart/stop containers manually
 
 Auto-Refresh: Updates every 10 seconds
 
-5. Systemd Service (deploy/containerguard.service)
+6. Systemd Service (deploy/containerguard.service)
 Production deployment:
 
 Auto-Start: Starts on boot
@@ -150,39 +167,76 @@ Resource Limits: CPU/memory constraints
 
 Data Flow
 Monitoring Cycle
-┌─────────────────────────────────────────────────────────────┐
-│                    Agent Monitoring Cycle                   │
-│                                                             │
-│  1. Timer triggers (every 30 seconds)                      │
-│         ↓                                                   │
-│  2. Agent queries Docker API for all containers            │
-│         ↓                                                   │
-│  3. For each container:                                    │
-│     ├─ If status == "running" → OK                         │
-│     ├─ If status == "exited" → RESTART                    │
-│     └─ If status == "paused" → LOG (no action)            │
-│         ↓                                                   │
-│  4. Action executor performs restarts                     │
-│         ↓                                                   │
-│  5. Action logged to SQLite + log file                    │
-│         ↓                                                   │
-│  6. Sleep until next interval                              │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                       Agent Monitoring Cycle                           │
+│                                                                         │
+│  1. Timer triggers (every 30 seconds)                                  │
+│         ↓                                                               │
+│  2. Agent queries Docker API for all containers                        │
+│         ↓                                                               │
+│  3. For each container:                                                │
+│     ├─ If status == "running" → OK                                     │
+│     ├─ If status == "exited" → RESTART                                │
+│     └─ If status == "paused" → LOG (no action)                        │
+│         ↓                                                               │
+│  4. Action executor performs restarts                                 │
+│         ↓                                                               │
+│  5. Action logged to JSON file                                        │
+│         ↓                                                               │
+│  6. Sleep until next interval                                          │
+└─────────────────────────────────────────────────────────────────────────┘
 Dashboard Data Flow
-┌─────────────────────────────────────────────────────────────┐
-│                    Dashboard Data Flow                      │
-│                                                             │
-│  Browser → Gradio Server → Agent → Docker API             │
-│     ↑           ↓            ↓        ↓                    │
-│     │      Render HTML   Fetch Data  Return Status         │
-│     └──────────┴────────────┴──────────┘                   │
-│                                                             │
-│  Manual Control Flow:                                      │
-│  Browser → Click Button → Gradio → Agent → Docker API     │
-│     ↑           ↓             ↓         ↓        ↓         │
-│     │      Show Result  Execute   Restart   Return        │
-│     └──────────┴────────────┴──────────┴────────┘         │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        Dashboard Data Flow                             │
+│                                                                         │
+│  Browser → Gradio Server → Agent → Docker API                         │
+│     ↑           ↓            ↓        ↓                                │
+│     │      Render HTML   Fetch Data  Return Status                     │
+│     └──────────┴────────────┴──────────┘                              │
+│                                                                         │
+│  History Flow:                                                         │
+│  Dashboard reads /tmp/containerguard_history.json                     │
+│     ↑                                                                  │
+│     └── Shared JSON file (agent writes, dashboard reads)              │
+│                                                                         │
+│  Manual Control Flow:                                                  │
+│  Browser → Click Button → Gradio → Agent → Docker API                 │
+│     ↑           ↓             ↓         ↓        ↓                    │
+│     │      Show Result  Execute   Restart   Return                    │
+│     └──────────┴────────────┴──────────┴────────┘                    │
+└─────────────────────────────────────────────────────────────────────────┘
+Persistent History
+Why JSON?
+Requirement	Solution
+Shared between processes	File-based storage
+Survives restarts	Written to disk
+Human-readable	JSON format
+Easy to extend	Append-only structure
+History File Format
+
+[
+  {
+    "timestamp": "2026-08-24T05:35:57.986681",
+    "action": "restart",
+    "container": "test-postgres",
+    "status": "success"
+  },
+  {
+    "timestamp": "2026-08-24T05:36:28.429983",
+    "action": "restart",
+    "container": "test-postgres",
+    "status": "success"
+  }
+]
+Adding New Action Types
+self.action_history.append({
+    'timestamp': datetime.now().isoformat(),
+    'action': 'stop',  # New action
+    'container': container.name,
+    'status': 'success',
+    'reason': 'manual_request'  # Additional metadata
+})
+self._save_history()
 Decision Engine
 Rule Evaluation Logic
 def evaluate_decision(container):
@@ -195,12 +249,12 @@ def evaluate_decision(container):
         if time_since_last_restart(name) > COOLDOWN_SECONDS:
             return 'restart'
     
-    # Rule 2: Long-running containers with high CPU
+    # Rule 2: Long-running containers with high CPU (future)
     if status == 'running':
         if cpu_usage(name) > 90 and duration > 5 * 60:
             return 'scale_up'
     
-    # Rule 3: Unused images should be cleaned
+    # Rule 3: Unused images should be cleaned (future)
     if disk_usage() > 80:
         return 'cleanup'
     
@@ -229,7 +283,7 @@ export DOCKER_HOST=tcp://worker-vm:2376
 export DOCKER_TLS_VERIFY=1
 export DOCKER_CERT_PATH=/path/to/certs
 SELinux Support
-ContainerGuard is tested on SELinux-enforcing systems:
+ContainerGuard automatically configures SELinux contexts:
 # Context required for Python execution
 sudo chcon -R -t bin_t /path/to/containerguard/venv/bin/
 sudo semanage fcontext -a -t bin_t "/path/to/containerguard/venv/bin(/.*)?"
@@ -239,7 +293,7 @@ Resource Usage
 Component	CPU	Memory	Disk
 Agent Core	< 1%	~20 MB	N/A
 Gradio Dashboard	< 1%	~50 MB	N/A
-SQLite	N/A	~5 MB	~10 MB/year
+JSON History	N/A	~5 MB	~10 MB/year
 Systemd Service	< 1%	~20 MB	N/A
 Scalability
 ContainerGuard can monitor:
@@ -257,7 +311,7 @@ Use SSH instead of TCP for remote connections
 
 Rotate logs weekly to prevent disk filling
 
-Use SQLite WAL mode for better concurrency
+Manage JSON history - clean up old entries periodically
 
 Extending ContainerGuard
 Adding New Actions
@@ -271,12 +325,28 @@ def send_webhook(self, container_name, event):
         'container': container_name,
         'timestamp': datetime.now().isoformat()
     })
+    # Log to history
+    self.action_history.append({
+        'timestamp': datetime.now().isoformat(),
+        'action': 'webhook',
+        'container': container_name,
+        'status': 'sent'
+    })
+    self._save_history()
 Call it from agent/core.py:
 if action == 'restart':
     self.actions.restart_container(container.id)
     self.actions.send_webhook(container.name, 'restarted')
 Adding New Rules
 Add rule logic to agent/core.py:
+# In check_and_heal()
+if status == 'running' and container.cpu_percent > 90:
+    logger.warning(f"⚠️ {name}: High CPU detected")
+    self.actions.scale_container(container.id, +1)
+# In check_and_heal()
+if status == 'running' and container.cpu_percent > 90:
+    logger.warning(f"⚠️ {name}: High CPU detected")
+    self.actions.scale_container(container.id, +1)
 # In check_and_heal()
 if status == 'running' and container.cpu_percent > 90:
     logger.warning(f"⚠️ {name}: High CPU detected")
@@ -296,6 +366,7 @@ Single Host (Local Docker)
 │  │  ContainerGuard Agent       │   │
 │  │  - Monitors local Docker    │   │
 │  │  - Dashboard on port 7860  │   │
+│  │  - JSON history in /tmp    │   │
 │  └─────────────────────────────┘   │
 │  ┌─────────────────────────────┐   │
 │  │  Docker Engine              │   │
@@ -309,50 +380,15 @@ Agent + Worker (Remote Docker)
 │  │ ContainerGuard │  │     │  │  Docker       │  │
 │  │  - Agent       │  │────▶│  │  Engine       │  │
 │  │  - Dashboard   │  │     │  │  - Containers │  │
-│  └───────────────┘  │     │  └───────────────┘  │
-└─────────────────────┘     └─────────────────────┘
-Multi-Worker (Enterprise)
-┌─────────────────────┐
-│   Agent VM          │
-│  ┌───────────────┐  │
-│  │ ContainerGuard │  │
-│  │  - Agent       │  │
-│  │  - Dashboard   │  │
-│  └───────────────┘  │
-└─────────┬───────────┘
-          │
-    ┌─────┴─────┬─────────┐
-    ▼           ▼         ▼
-┌────────┐ ┌────────┐ ┌────────┐
-│Worker1 │ │Worker2 │ │Worker3 │
-│Docker  │ │Docker  │ │Docker  │
-└────────┘ └────────┘ └────────┘
-Development Roadmap
-Phase 1: Core Agent (✅ Done)
-☑ Docker connection
-☑ Container discovery
-☑ Health monitoring
-☑ Auto-restart
-Phase 2: Production Ready (✅ Done)
-☑ Systemd service
-☑ Logging
-☑ SELinux support
-☑ Error handling
-Phase 3: UI & Visibility (✅ Done)
-☑ Gradio dashboard
-☑ Action history
-☑ Manual controls
-Phase 4: Advanced Features (🚧 Planned)
-□ Alerting (Slack/Discord)
-□ Prometheus metrics
-□ Auto-scaling
-□ Image auto-update
-□ Multi-host support
+│  │  - JSON history│  │     │  └───────────────┘  │
+│  └───────────────┘  │     └─────────────────────┘
+└─────────────────────┘
 Monitoring & Observability
 Logs
 Log File	Content	Rotation
 /var/log/containerguard.log	All agent logs	Daily
 /var/log/containerguard-error.log	Error-only logs	Daily
+/tmp/containerguard_history.json	Action history	Manual
 Metrics (Planned)
 
 # Prometheus metrics endpoint (future)
@@ -360,45 +396,20 @@ containerguard_containers_total{status="running"}
 containerguard_containers_total{status="exited"}
 containerguard_actions_total{action="restart"}
 containerguard_uptime_seconds
-Contributing
-Development Environment
-# Clone
-git clone https://github.com/muralipala1504/containerguard-new.git
-cd containerguard-new
-
-# Install dev dependencies
-pip install -r requirements.txt
-pip install pytest black flake8
-
-# Run tests
-pytest tests/
-
-# Format code
-black agent/ dashboard/
-
-# Lint
-flake8 agent/ dashboard/
-Code Standards
-Python: PEP 8
-
-Documentation: Google style docstrings
-
-Commits: Conventional commits
-
-Testing: Unit tests for core logic
-
 Appendix
-Docker API Reference
-Endpoint	Method	Description
-/containers/json	GET	List containers
-/containers/{id}/start	POST	Start container
-/containers/{id}/restart	POST	Restart container
-/containers/{id}/stop	POST	Stop container
-/system/df	GET	Disk usage
 Environment Variables
 Variable	Default	Description
 DOCKER_HOST	unix:///var/run/docker.sock	Docker daemon URL
 AGENT_INTERVAL	30	Monitoring interval (seconds)
 LOG_LEVEL	INFO	Logging level
-SQLITE_PATH	containerguard.db	Database location
+HISTORY_FILE	/tmp/containerguard_history.json	History file path
+History File Location
+The history file is stored in /tmp/ to ensure:
+
+✅ Write access for both agent and dashboard
+
+✅ Persistence across service restarts
+
+✅ Easy cleanup (if needed)
+
 Next: API.md - API reference and integration guide
