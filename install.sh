@@ -2,15 +2,9 @@
 # ContainerGuard - One-Line Installer
 # Usage: curl -sSL https://raw.githubusercontent.com/muralipala1504/containerguard-new/master/install.sh | bash
 
-set -e  # Exit on error
+set -e
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
-
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; NC='\033[0m'
 print_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 print_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
 print_error() { echo -e "${RED}[ERROR]${NC} $1"; }
@@ -23,7 +17,7 @@ echo "════════════════════════�
 echo ""
 
 if [[ $EUID -eq 0 ]]; then
-    print_warning "Running as root - this is not recommended"
+    print_warning "Running as root - not recommended"
     INSTALL_USER=$SUDO_USER
 else
     INSTALL_USER=$USER
@@ -104,11 +98,11 @@ print_info "Docker Configuration:"
 echo "  1) Local Docker (same machine) - Default"
 echo "  2) Remote Docker (different machine)"
 echo "  3) Skip (configure manually later)"
-read -p "Choose option (1-3): " DOCKER_OPTION
+read -p "Choose option (1-3): " DOCKER_OPTION </dev/tty
 
 case $DOCKER_OPTION in
     1) print_info "Using local Docker" ;;
-    2) read -p "Enter remote Docker IP: " REMOTE_IP
+    2) read -p "Enter remote Docker IP: " REMOTE_IP </dev/tty
        echo "export DOCKER_HOST=tcp://$REMOTE_IP:2375" >> "$INSTALL_DIR/.env" ;;
     3) print_info "Skipping Docker configuration." ;;
     *) print_warning "Invalid option. Using local Docker." ;;
@@ -118,7 +112,8 @@ echo ""
 print_info "Install Gradio Dashboard?"
 echo "  1) Yes (recommended)"
 echo "  2) No (agent only)"
-read -p "Choose option (1-2): " DASHBOARD_OPTION
+read -p "Choose option (1-2): " DASHBOARD_OPTION </dev/tty
+print_info "Dashboard option selected: $DASHBOARD_OPTION"
 
 print_info "Installing systemd service..."
 sudo cp deploy/containerguard.service /etc/systemd/system/
@@ -133,11 +128,9 @@ else
     exit 1
 fi
 
-# STEP 8: DASHBOARD AND FIREWALL (ONLY IF INSTALLED)
 if [[ "$DASHBOARD_OPTION" == "1" ]]; then
     print_info "Starting dashboard and configuring firewall..."
-
-    # Start firewalld if needed
+    
     if command -v systemctl &> /dev/null; then
         if ! systemctl is-active --quiet firewalld 2>/dev/null; then
             print_info "Starting firewalld..."
@@ -145,8 +138,7 @@ if [[ "$DASHBOARD_OPTION" == "1" ]]; then
             sudo systemctl enable firewalld 2>/dev/null || true
         fi
     fi
-
-    # Open port 7860
+    
     if command -v firewall-cmd &> /dev/null; then
         if systemctl is-active --quiet firewalld 2>/dev/null; then
             sudo firewall-cmd --add-port=7860/tcp --permanent 2>/dev/null || true
@@ -161,15 +153,14 @@ if [[ "$DASHBOARD_OPTION" == "1" ]]; then
     else
         print_warning "No firewall detected - please open port 7860 manually"
     fi
-
-    # Start dashboard
+    
     print_info "Starting dashboard in background..."
     cd "$INSTALL_DIR"
     pkill -f "dashboard/app.py" 2>/dev/null || true
     nohup venv/bin/python dashboard/app.py > dashboard.log 2>&1 &
     DASHBOARD_PID=$!
     sleep 2
-
+    
     if ps -p $DASHBOARD_PID > /dev/null 2>&1; then
         print_success "Dashboard started (PID: $DASHBOARD_PID) on http://$(hostname -I | awk '{print $1}'):7860"
     else
@@ -202,17 +193,12 @@ echo "  📝 Logs: /var/log/containerguard.log"
 echo "  🔐 Status: sudo systemctl status containerguard"
 echo ""
 echo "📚 Useful Commands:"
-echo "  sudo systemctl status containerguard  # Check service status"
-echo "  sudo journalctl -u containerguard -f  # View logs"
+echo "  sudo systemctl status containerguard"
+echo "  sudo journalctl -u containerguard -f"
 if [[ "$DASHBOARD_OPTION" == "1" ]]; then
-    echo "  python dashboard/app.py               # Start dashboard manually"
+    echo "  python dashboard/app.py"
 fi
 echo ""
-echo "📖 Documentation:"
-echo "  README.md      - Project overview"
-echo "  INSTALL.md     - Detailed installation"
-echo "  ARCHITECTURE.md - Technical design"
-echo "  API.md         - API reference"
-echo ""
+echo "📖 Documentation: README.md INSTALL.md ARCHITECTURE.md API.md"
 echo "🔗 GitHub: https://github.com/muralipala1504/containerguard-new"
 echo "═══════════════════════════════════════════════════════════════"
