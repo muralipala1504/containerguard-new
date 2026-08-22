@@ -105,7 +105,22 @@ cd "$INSTALL_DIR"
 print_info "Creating Python virtual environment..."
 python3 -m venv venv
 source venv/bin/activate
+# After "Creating Python virtual environment..." section
 
+# Fix permissions and SELinux context
+print_info "Configuring file permissions and SELinux..."
+sudo chown -R $INSTALL_USER:$INSTALL_USER "$INSTALL_DIR"
+sudo chmod -R 755 "$INSTALL_DIR/venv/bin/"
+
+# SELinux context (if enforcing)
+if command -v getenforce &> /dev/null && [[ $(getenforce) == "Enforcing" ]]; then
+    print_info "SELinux is enforcing - applying context rules..."
+    sudo chcon -R -t bin_t "$INSTALL_DIR/venv/bin/"
+    if command -v semanage &> /dev/null; then
+        sudo semanage fcontext -a -t bin_t "$INSTALL_DIR/venv/bin(/.*)?" 2>/dev/null || true
+        sudo restorecon -Rv "$INSTALL_DIR/venv/bin/" 2>/dev/null || true
+    fi
+fi
 # Step 3: Install dependencies
 print_info "Installing Python dependencies..."
 pip install --upgrade pip > /dev/null 2>&1
