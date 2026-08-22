@@ -1,3 +1,4 @@
+cat > ~/containerguard-new/install.sh << 'EOF'
 #!/bin/bash
 # ContainerGuard - One-Line Installer
 # Usage: curl -sSL https://raw.githubusercontent.com/muralipala1504/containerguard-new/master/install.sh | bash
@@ -181,30 +182,56 @@ else
     exit 1
 fi
 
-# Step 8: Firewall + Dashboard (only if installed)
+# Step 8: Firewall and Dashboard (only if installed)
 if [[ "$DASHBOARD_OPTION" == "1" ]]; then
-    print_info "Configuring firewall for dashboard..."
+    print_info "Starting dashboard and configuring firewall..."
+    
+    # Start firewalld if needed
+    if command -v systemctl &> /dev/null; then
+        if ! systemctl is-active --quiet firewalld 2>/dev/null; then
+            print_info "Starting firewalld..."
+            sudo systemctl start firewalld 2>/dev/null || true
+            sudo systemctl enable firewalld 2>/dev/null || true
+        fi
+    fi
+    
+    # Open port 7860
     if command -v firewall-cmd &> /dev/null; then
-        sudo firewall-cmd --add-port=7860/tcp --permanent 2>/dev/null || true
-        sudo firewall-cmd --reload 2>/dev/null || true
-        print_success "Port 7860 opened in firewall"
+        if systemctl is-active --quiet firewalld 2>/dev/null; then
+            sudo firewall-cmd --add-port=7860/tcp --permanent 2>/dev/null || true
+            sudo firewall-cmd --reload 2>/dev/null || true
+            print_success "Firewall port 7860 opened"
+        else
+            print_warning "firewalld not active - please open port 7860 manually if needed"
+        fi
     elif command -v ufw &> /dev/null; then
         sudo ufw allow 7860/tcp 2>/dev/null || true
-        print_success "Port 7860 opened in firewall (ufw)"
+        print_success "Firewall port 7860 opened (ufw)"
     else
-        print_warning "Firewall not detected. Open port 7860 manually."
+        print_warning "No firewall detected - please open port 7860 manually if needed"
     fi
-
-    # Start the dashboard in the background
+    
+    # Start dashboard
     print_info "Starting dashboard in background..."
     cd "$INSTALL_DIR"
+    
+    # Kill any existing dashboard processes
+    pkill -f "dashboard/app.py" 2>/dev/null || true
+    
+    # Start with nohup
     nohup venv/bin/python dashboard/app.py > dashboard.log 2>&1 &
     DASHBOARD_PID=$!
-    sleep 2  # Give it a moment to start
-    print_success "Dashboard started (PID: $DASHBOARD_PID) on http://$(hostname -I | awk '{print $1}'):7860"
+    sleep 2
+    
+    # Verify it started
+    if ps -p $DASHBOARD_PID > /dev/null 2>&1; then
+        print_success "Dashboard started (PID: $DASHBOARD_PID) on http://$(hostname -I | awk '{print $1}'):7860"
+    else
+        print_warning "Dashboard may not have started. Check dashboard.log"
+    fi
 fi
 
-# Step 9: Create .env file for configuration
+# Step 9: Create .env file
 cat > "$INSTALL_DIR/.env" << 'ENVEOF'
 # ContainerGuard Environment Configuration
 DOCKER_HOST=unix:///var/run/docker.sock
@@ -212,7 +239,7 @@ AGENT_INTERVAL=30
 LOG_LEVEL=INFO
 ENVEOF
 
-# Step 10: Set permissions
+# Step 10: Final permissions
 sudo chown -R $INSTALL_USER:$INSTALL_USER "$INSTALL_DIR"
 
 # Final summary
@@ -226,7 +253,8 @@ echo "  📁 Location: $INSTALL_DIR"
 echo "  🔧 Service: containerguard (systemd)"
 
 if [[ "$DASHBOARD_OPTION" == "1" ]]; then
-    echo "  📊 Dashboard: http://$(hostname -I | awk '{print $1}'):7860"
+    DASHBOARD_IP=$(hostname -I | awk '{print $1}')
+    echo "  📊 Dashboard: http://$DASHBOARD_IP:7860"
 else
     echo "  📊 Dashboard: Not installed"
 fi
@@ -240,6 +268,7 @@ echo "  sudo journalctl -u containerguard -f  # View logs"
 
 if [[ "$DASHBOARD_OPTION" == "1" ]]; then
     echo "  python dashboard/app.py               # Start dashboard manually"
+    echo "  ps aux | grep dashboard               # Check dashboard process"
 fi
 
 echo ""
@@ -251,3 +280,4 @@ echo "  API.md         - API reference"
 echo ""
 echo "🔗 GitHub: https://github.com/muralipala1504/containerguard-new"
 echo "═══════════════════════════════════════════════════════════════"
+EOF
