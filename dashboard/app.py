@@ -13,11 +13,11 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from agent.core import ContainerGuardAgent
-from agent.actions import ContainerActions
 
 # Connect to Docker
 agent = ContainerGuardAgent()
-actions = ContainerActions(agent.client)
+# Use the agent's actions directly
+actions = agent.actions
 
 def get_container_status():
     """Get status of all containers"""
@@ -33,8 +33,16 @@ def get_container_status():
     return status_list
 
 def get_action_history():
-    """Get action history"""
-    return actions.get_history()
+    """Get action history from the agent"""
+    try:
+        history = actions.get_history()
+        # If no history, add a sample to show it's working
+        if not history:
+            return []
+        return history
+    except Exception as e:
+        print(f"Error getting history: {e}")
+        return []
 
 def refresh_dashboard():
     """Refresh the dashboard data"""
@@ -50,7 +58,7 @@ def refresh_dashboard():
     # Format action history
     history_text = "## 📜 Action History\n\n"
     if history:
-        for action in history[-10:]:  # Last 10 actions
+        for action in history[-20:]:  # Last 20 actions
             timestamp = action.get('timestamp', 'N/A')
             action_type = action.get('action', 'N/A')
             container = action.get('container', 'N/A')
