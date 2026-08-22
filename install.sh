@@ -158,7 +158,29 @@ case $DOCKER_OPTION in
         print_warning "Invalid option. Using local Docker."
         ;;
 esac
-
+# Start dashboard in background
+if [[ "$DASHBOARD_OPTION" == "1" ]]; then
+    print_info "Starting dashboard in background..."
+    cd "$INSTALL_DIR"
+    nohup venv/bin/python dashboard/app.py > dashboard.log 2>&1 &
+    
+    # 🔥 ADD THIS: Open firewall for dashboard
+    print_info "Opening firewall port 7860..."
+    if command -v firewall-cmd &> /dev/null; then
+        sudo firewall-cmd --add-port=7860/tcp --permanent 2>/dev/null || true
+        sudo firewall-cmd --reload 2>/dev/null || true
+        print_success "Firewall port 7860 opened"
+    elif command -v ufw &> /dev/null; then
+        sudo ufw allow 7860/tcp 2>/dev/null || true
+        print_success "Firewall port 7860 opened (ufw)"
+    else
+        print_warning "Firewall not detected. Please open port 7860 manually."
+    fi
+    
+    # Get the IP for the summary
+    DASHBOARD_IP=$(hostname -I | awk '{print $1}')
+    print_success "Dashboard started on http://$DASHBOARD_IP:7860"
+fi
 # Step 6: Ask about dashboard installation
 echo ""
 print_info "Install Gradio Dashboard?"
