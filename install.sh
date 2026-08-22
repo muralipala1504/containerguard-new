@@ -1,6 +1,6 @@
 #!/bin/bash
 # ContainerGuard - One-Line Installer
-# Usage: curl -sSL https://raw.githubusercontent.com/muralipala1504/containerguard-new/main/install.sh | bash
+# Usage: curl -sSL https://raw.githubusercontent.com/muralipala1504/containerguard-new/master/install.sh | bash
 
 set -e  # Exit on error
 
@@ -105,7 +105,6 @@ cd "$INSTALL_DIR"
 print_info "Creating Python virtual environment..."
 python3 -m venv venv
 source venv/bin/activate
-# After "Creating Python virtual environment..." section
 
 # Fix permissions and SELinux context
 print_info "Configuring file permissions and SELinux..."
@@ -121,12 +120,13 @@ if command -v getenforce &> /dev/null && [[ $(getenforce) == "Enforcing" ]]; the
         sudo restorecon -Rv "$INSTALL_DIR/venv/bin/" 2>/dev/null || true
     fi
 fi
+
 # Step 3: Install dependencies
 print_info "Installing Python dependencies..."
 pip install --upgrade pip > /dev/null 2>&1
 pip install -r requirements.txt
 
-# Step 4: Test agent connection
+# Step 4: Test Docker connection
 print_info "Testing Docker connection..."
 if python -c "import docker; c=docker.DockerClient(base_url='unix:///var/run/docker.sock'); c.ping()" 2>/dev/null; then
     print_success "Docker connection successful"
@@ -134,7 +134,7 @@ else
     print_warning "Cannot connect to local Docker. If using remote Docker, configure DOCKER_HOST."
 fi
 
-# Step 5: Ask about Docker configuration
+# Step 5: Docker configuration
 echo ""
 print_info "Docker Configuration:"
 echo "  1) Local Docker (same machine) - Default"
@@ -158,29 +158,7 @@ case $DOCKER_OPTION in
         print_warning "Invalid option. Using local Docker."
         ;;
 esac
-# Start dashboard in background
-if [[ "$DASHBOARD_OPTION" == "1" ]]; then
-    print_info "Starting dashboard in background..."
-    cd "$INSTALL_DIR"
-    nohup venv/bin/python dashboard/app.py > dashboard.log 2>&1 &
-    
-    # 🔥 ADD THIS: Open firewall for dashboard
-    print_info "Opening firewall port 7860..."
-    if command -v firewall-cmd &> /dev/null; then
-        sudo firewall-cmd --add-port=7860/tcp --permanent 2>/dev/null || true
-        sudo firewall-cmd --reload 2>/dev/null || true
-        print_success "Firewall port 7860 opened"
-    elif command -v ufw &> /dev/null; then
-        sudo ufw allow 7860/tcp 2>/dev/null || true
-        print_success "Firewall port 7860 opened (ufw)"
-    else
-        print_warning "Firewall not detected. Please open port 7860 manually."
-    fi
-    
-    # Get the IP for the summary
-    DASHBOARD_IP=$(hostname -I | awk '{print $1}')
-    print_success "Dashboard started on http://$DASHBOARD_IP:7860"
-fi
+
 # Step 6: Ask about dashboard installation
 echo ""
 print_info "Install Gradio Dashboard?"
@@ -203,22 +181,29 @@ else
     exit 1
 fi
 
-# Step 8: Firewall for dashboard AND start it
+# Step 8: Firewall + Dashboard (only if installed)
 if [[ "$DASHBOARD_OPTION" == "1" ]]; then
-    print_info "Configuring firewall and starting dashboard..."
+    print_info "Configuring firewall for dashboard..."
     if command -v firewall-cmd &> /dev/null; then
         sudo firewall-cmd --add-port=7860/tcp --permanent 2>/dev/null || true
         sudo firewall-cmd --reload 2>/dev/null || true
         print_success "Port 7860 opened in firewall"
+    elif command -v ufw &> /dev/null; then
+        sudo ufw allow 7860/tcp 2>/dev/null || true
+        print_success "Port 7860 opened in firewall (ufw)"
     else
-        print_warning "firewalld not found. Open port 7860 manually if needed."
+        print_warning "Firewall not detected. Open port 7860 manually."
     fi
-    
+
     # Start the dashboard in the background
+    print_info "Starting dashboard in background..."
     cd "$INSTALL_DIR"
     nohup venv/bin/python dashboard/app.py > dashboard.log 2>&1 &
-    print_success "Dashboard started on http://$(hostname -I | awk '{print $1}'):7860"
+    DASHBOARD_PID=$!
+    sleep 2  # Give it a moment to start
+    print_success "Dashboard started (PID: $DASHBOARD_PID) on http://$(hostname -I | awk '{print $1}'):7860"
 fi
+
 # Step 9: Create .env file for configuration
 cat > "$INSTALL_DIR/.env" << 'ENVEOF'
 # ContainerGuard Environment Configuration
@@ -230,7 +215,7 @@ ENVEOF
 # Step 10: Set permissions
 sudo chown -R $INSTALL_USER:$INSTALL_USER "$INSTALL_DIR"
 
-# Summary
+# Final summary
 echo ""
 echo "═══════════════════════════════════════════════════════════════"
 print_success "✅ ContainerGuard Installation Complete!"
@@ -239,14 +224,24 @@ echo ""
 echo "📋 Installation Summary:"
 echo "  📁 Location: $INSTALL_DIR"
 echo "  🔧 Service: containerguard (systemd)"
-echo "  📊 Dashboard: http://$(hostname -I | awk '{print $1}'):7860"
+
+if [[ "$DASHBOARD_OPTION" == "1" ]]; then
+    echo "  📊 Dashboard: http://$(hostname -I | awk '{print $1}'):7860"
+else
+    echo "  📊 Dashboard: Not installed"
+fi
+
 echo "  📝 Logs: /var/log/containerguard.log"
 echo "  🔐 Status: sudo systemctl status containerguard"
 echo ""
 echo "📚 Useful Commands:"
 echo "  sudo systemctl status containerguard  # Check service status"
 echo "  sudo journalctl -u containerguard -f  # View logs"
-echo "  python dashboard/app.py               # Start dashboard manually"
+
+if [[ "$DASHBOARD_OPTION" == "1" ]]; then
+    echo "  python dashboard/app.py               # Start dashboard manually"
+fi
+
 echo ""
 echo "📖 Documentation:"
 echo "  README.md      - Project overview"
