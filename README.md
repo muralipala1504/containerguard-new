@@ -19,27 +19,52 @@ ContainerGuard is a lightweight, autonomous agent that monitors Docker container
 | 🔍 **Health Monitoring** | Continuously checks container health status |
 | 🔄 **Auto-Heal** | Automatically restarts crashed/exited containers |
 | 🧹 **Auto-Cleanup** | Removes unused images, volumes, and dangling resources |
-| 🔔 **Alerts** | Sends notifications via Slack, Discord, or Email |
-| 📊 **Dashboard** | Web UI to view status and action history |
-| ⚙️ **Configurable** | YAML-based rules and scheduling |
+| 📊 **Dashboard** | Web UI with container status and action history |
+| 📜 **Persistent History** | All actions logged to JSON file for audit |
+| 🔔 **Alerts** | Send notifications via Slack, Discord, or Email (coming soon) |
 | 🐳 **Docker Native** | Works with Docker and Docker Compose |
+| 🔒 **SELinux Ready** | Automatically configures SELinux contexts |
 
 ---
 
 ## 🏗️ Architecture
 
-┌─────────────────────────────────────────────────────────┐
-│ ContainerGuard │
-│ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ │
-│ │ Agent │ │ Dashboard │ │ Alerts │ │
-│ │ (Core) │ │ (Gradio) │ │ (Slack) │ │
-│ └─────────────┘ └─────────────┘ └─────────────┘ │
-│ │ │ │ │
-│ ▼ ▼ ▼ │
-│ ┌─────────────────────────────────────────────────┐ │
-│ │ Docker API Client │ │
-│ └─────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│ ContainerGuard System │
+│ │
+│ ┌─────────────────────────────────────────────────────────────────┐ │
+│ │ User Interface Layer │ │
+│ │ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ │ │
+│ │ │ Gradio │ │ CLI │ │ REST API │ │ │
+│ │ │ Dashboard │ │ Commands │ │ (Future) │ │ │
+│ │ └─────────────┘ └─────────────┘ └─────────────┘ │ │
+│ └─────────────────────────────────────────────────────────────────┘ │
+│ │ │
+│ ┌─────────────────────────────────────────────────────────────────┐ │
+│ │ Agent Core Layer │ │
+│ │ │ │
+│ │ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ │ │
+│ │ │ Scheduler │→│ Decision │→│ Action │ │ │
+│ │ │ (Timer) │ │ Engine │ │ Executor │ │ │
+│ │ └─────────────┘ └─────────────┘ └─────────────┘ │ │
+│ │ │ │ │ │ │
+│ │ ▼ ▼ ▼ │ │
+│ │ ┌─────────────────────────────────────────────────┐ │ │
+│ │ │ Persistent History (JSON) │ │ │
+│ │ │ - All agent actions │ │ │
+│ │ │ - Timestamps │ │ │
+│ │ │ - Success/failure status │ │ │
+│ │ └─────────────────────────────────────────────────┘ │ │
+│ └─────────────────────────────────────────────────────────────────┘ │
+│ │ │
+│ ┌─────────────────────────────────────────────────────────────────┐ │
+│ │ Integration Layer │ │
+│ │ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ │ │
+│ │ │ Docker │ │ Alerts │ │ Metrics │ │ │
+│ │ │ SDK │ │ (Slack) │ │ (Prometheus)│ │ │
+│ │ └─────────────┘ └─────────────┘ └─────────────┘ │ │
+│ └─────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────┘
 │
 ▼
 ┌─────────────────────┐
@@ -51,80 +76,49 @@ ContainerGuard is a lightweight, autonomous agent that monitors Docker container
 
 ## ⚡ Quick Start
 
-### Prerequisites
-- Linux (AlmaLinux 8/9, Ubuntu 20.04+, RHEL)
-- Docker Engine 20.10+
-- Python 3.9+
-- 2 CPU, 4GB RAM (minimum)
-
 ### One-Line Installation
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/muralipala1504/containerguard-new/main/install.sh | bash
-Manual Installation
-# Clone the repository
-git clone https://github.com/muralipala1504/containerguard-new.git
-cd containerguard-new
+curl -sSL https://raw.githubusercontent.com/muralipala1504/containerguard-new/master/install.sh | bash
+What Happens Automatically
+The installer will:
 
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate
+✅ Clone the repository
 
-# Install dependencies
-pip install -r requirements.txt
+✅ Create a Python virtual environment
 
-# Configure Docker host (if remote)
-export DOCKER_HOST=tcp://your-docker-host:2375
+✅ Install all dependencies
 
-# Test the agent
-python agent/core.py
+✅ Configure SELinux (if enforcing)
 
-# Start the agent as a service
-sudo cp deploy/containerguard.service /etc/systemd/system/
-sudo systemctl enable --now containerguard
+✅ Set up the agent as a systemd service
 
-# Start the dashboard
-python dashboard/app.py
-# Open http://your-server-ip:7860
-📊 Dashboard Preview
-Access the web dashboard at http://your-server-ip:7860:
+✅ Open firewall port 7860
 
-Container Status - Real-time view of all containers
+✅ Start the web dashboard
 
-Action History - Audit log of all automated actions
+🌐 Dashboard
+Access the web dashboard at http://<your-ip>:7860:
 
-Manual Controls - Restart/stop containers manually
+Container Status: Real-time view of all containers
 
-Live Updates - Auto-refresh every 10 seconds
+Action History: Persistent audit log of all actions
 
-🔧 Configuration
-Environment Variables
-Variable	Description	Default
-DOCKER_HOST	Docker daemon URL	unix:///var/run/docker.sock
-AGENT_INTERVAL	Check interval (seconds)	30
-LOG_LEVEL	Logging level	INFO
-SLACK_WEBHOOK	Slack alert webhook	""
-Agent Rules (YAML)
-rules:
-  - name: "Restart exited containers"
-    condition: "status == 'exited'"
-    action: "restart"
-    cooldown: 60  # seconds between restarts
+Manual Controls: Restart/stop containers manually
 
-  - name: "Cleanup unused images"
-    condition: "disk_usage > 80%"
-    action: "cleanup"
-    schedule: "daily"
-rules:
-  - name: "Restart exited containers"
-    condition: "status == 'exited'"
-    action: "restart"
-    cooldown: 60  # seconds between restarts
-
-  - name: "Cleanup unused images"
-    condition: "disk_usage > 80%"
-    action: "cleanup"
-    schedule: "daily"
+📁 Persistent History
+All agent actions are logged to /tmp/containerguard_history.json:
+[
+  {
+    "timestamp": "2026-08-24T05:35:57.986681",
+    "action": "restart",
+    "container": "test-postgres",
+    "status": "success"
+  }
+]
+This file is shared between the agent and dashboard, ensuring consistent history display.
+🔧 Systemd Service
+The agent runs as a systemd service:
 # Check status
 sudo systemctl status containerguard
 
@@ -133,21 +127,30 @@ sudo journalctl -u containerguard -f
 
 # Stop/Start/Restart
 sudo systemctl {stop|start|restart} containerguard
-Log Files
-/var/log/containerguard.log - Agent logs
+📋 Requirements
+Component	Version
+OS	AlmaLinux 8+, Ubuntu 20.04+, RHEL 8+
+Docker	20.10+
+Python	3.9+
+CPU	2 cores
+RAM	2 GB
+🤝 Contributing
+Fork the repository
 
-/var/log/containerguard-error.log - Error logs
-Log Files
-/var/log/containerguard.log - Agent logs
+Create your feature branch (git checkout -b feature/amazing)
 
-/var/log/containerguard-error.log - Error logs
+Commit your changes (git commit -m 'Add amazing feature')
+
+Push to the branch (git push origin feature/amazing)
+
+Open a Pull Request
+
 📄 License
-This project is licensed under the MIT License - see the LICENSE file for details.
+MIT License - see LICENSE for details
 
 📞 Support
 Issues: GitHub Issues
 
 Discussions: GitHub Discussions
 
-Email: muralipala1504@gmail.com
 Built with ❤️ for the Docker community
