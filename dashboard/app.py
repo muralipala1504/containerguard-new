@@ -1,12 +1,8 @@
-"""
-ContainerGuard Dashboard - Gradio Web Interface
-Displays container status, action history, and manual controls
-"""
-
 import gradio as gr
 import docker
 import sys
 import os
+import json
 from datetime import datetime
 
 # Add parent directory to path
@@ -16,8 +12,9 @@ from agent.core import ContainerGuardAgent
 
 # Connect to Docker
 agent = ContainerGuardAgent()
-# Use the agent's actions directly
-actions = agent.actions
+
+# Path to the shared history file
+HISTORY_FILE = "/tmp/containerguard_history.json"
 
 def get_container_status():
     """Get status of all containers"""
@@ -33,16 +30,15 @@ def get_container_status():
     return status_list
 
 def get_action_history():
-    """Get action history from the agent"""
-    try:
-        history = actions.get_history()
-        # If no history, add a sample to show it's working
-        if not history:
+    """Get action history from the shared JSON file"""
+    if os.path.exists(HISTORY_FILE):
+        try:
+            with open(HISTORY_FILE, 'r') as f:
+                history = json.load(f)
+                return history
+        except:
             return []
-        return history
-    except Exception as e:
-        print(f"Error getting history: {e}")
-        return []
+    return []
 
 def refresh_dashboard():
     """Refresh the dashboard data"""
@@ -58,35 +54,21 @@ def refresh_dashboard():
     # Format action history
     history_text = "## 📜 Action History\n\n"
     if history:
-        for action in history[-20:]:  # Last 20 actions
-            timestamp = action.get('timestamp', 'N/A')
-            action_type = action.get('action', 'N/A')
+        # Show last 10 actions, most recent first
+        for action in history[-10:][::-1]:
+            ts = action.get('timestamp', 'N/A')
+            act = action.get('action', 'N/A')
             container = action.get('container', 'N/A')
             status = action.get('status', 'N/A')
-            history_text += f"**{timestamp}**: {action_type} {container} - {status}\n"
+            history_text += f"**{ts}**: {act} {container} - {status}\n"
     else:
         history_text += "No actions recorded yet."
     
     return status_text, history_text
 
 def restart_container(container_name):
-    container_name = container_name.strip()  # Add this line
-    try:
-        container = agent.client.containers.get(container_name)
-        container.restart()
-        return f"✅ Restarted container: {container_name}"
-    except Exception as e:
-        return f"❌ Failed to restart {container_name}: {e}"
-
-def stop_container(container_name):
-    container_name = container_name.strip()  # Add this line
-    try:
-        container = agent.client.containers.get(container_name)
-        container.stop()
-        return f"✅ Stopped container: {container_name}"
-    except Exception as e:
-        return f"❌ Failed to stop {container_name}: {e}"
     """Manual restart of a container"""
+    container_name = container_name.strip()
     try:
         container = agent.client.containers.get(container_name)
         container.restart()
@@ -96,6 +78,7 @@ def stop_container(container_name):
 
 def stop_container(container_name):
     """Manual stop of a container"""
+    container_name = container_name.strip()
     try:
         container = agent.client.containers.get(container_name)
         container.stop()
