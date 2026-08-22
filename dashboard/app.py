@@ -62,6 +62,22 @@ def refresh_dashboard():
     return status_text, history_text
 
 def restart_container(container_name):
+    container_name = container_name.strip()  # Add this line
+    try:
+        container = agent.client.containers.get(container_name)
+        container.restart()
+        return f"✅ Restarted container: {container_name}"
+    except Exception as e:
+        return f"❌ Failed to restart {container_name}: {e}"
+
+def stop_container(container_name):
+    container_name = container_name.strip()  # Add this line
+    try:
+        container = agent.client.containers.get(container_name)
+        container.stop()
+        return f"✅ Stopped container: {container_name}"
+    except Exception as e:
+        return f"❌ Failed to stop {container_name}: {e}"
     """Manual restart of a container"""
     try:
         container = agent.client.containers.get(container_name)
