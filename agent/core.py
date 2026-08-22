@@ -6,8 +6,14 @@ Now with auto-healing capabilities
 import docker
 import logging
 import time
+import sys
+import os
 from datetime import datetime
-from actions import ContainerActions
+
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from agent.actions import ContainerActions
 
 # Setup logging
 logging.basicConfig(
