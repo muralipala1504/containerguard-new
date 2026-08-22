@@ -203,9 +203,9 @@ else
     exit 1
 fi
 
-# Step 8: Firewall for dashboard
+# Step 8: Firewall for dashboard AND start it
 if [[ "$DASHBOARD_OPTION" == "1" ]]; then
-    print_info "Configuring firewall for dashboard..."
+    print_info "Configuring firewall and starting dashboard..."
     if command -v firewall-cmd &> /dev/null; then
         sudo firewall-cmd --add-port=7860/tcp --permanent 2>/dev/null || true
         sudo firewall-cmd --reload 2>/dev/null || true
@@ -213,8 +213,12 @@ if [[ "$DASHBOARD_OPTION" == "1" ]]; then
     else
         print_warning "firewalld not found. Open port 7860 manually if needed."
     fi
+    
+    # Start the dashboard in the background
+    cd "$INSTALL_DIR"
+    nohup venv/bin/python dashboard/app.py > dashboard.log 2>&1 &
+    print_success "Dashboard started on http://$(hostname -I | awk '{print $1}'):7860"
 fi
-
 # Step 9: Create .env file for configuration
 cat > "$INSTALL_DIR/.env" << 'ENVEOF'
 # ContainerGuard Environment Configuration
