@@ -1,6 +1,6 @@
 # 🔌 ContainerGuard API Reference
 
-Complete API documentation for ContainerGuard's internal interfaces, webhook integration, and extensibility points.
+Complete API documentation for ContainerGuard's internal interfaces, persistent history, and extensibility points.
 
 ---
 
@@ -9,9 +9,9 @@ Complete API documentation for ContainerGuard's internal interfaces, webhook int
 1. [Overview](#overview)
 2. [Agent API](#agent-api)
 3. [Dashboard API](#dashboard-api)
-4. [Webhook Integration](#webhook-integration)
-5. [Configuration API](#configuration-api)
-6. [Database Schema](#database-schema)
+4. [Persistent History API](#persistent-history-api)
+5. [Webhook Integration](#webhook-integration)
+6. [Configuration API](#configuration-api)
 7. [Error Codes](#error-codes)
 8. [Examples](#examples)
 
@@ -25,8 +25,8 @@ ContainerGuard provides several interfaces for integration:
 |-----------|---------|----------|
 | **Agent Core** | Monitoring and actions | Python API |
 | **Dashboard** | Web UI | HTTP (Gradio) |
+| **Persistent History** | Action logging | JSON file |
 | **Webhooks** | Alerts/Notifications | HTTP (Future) |
-| **Configuration** | User settings | YAML/JSON |
 
 ---
 
@@ -80,6 +80,8 @@ ContainerActions Class
 class ContainerActions:
     def __init__(self, docker_client):
         """Initialize actions with a Docker client."""
+        self.history_file = "/tmp/containerguard_history.json"
+        self.action_history = self._load_history()
         pass
     
     def restart_container(self, container_id: str) -> bool:
@@ -108,7 +110,7 @@ class ContainerActions:
     
     def get_history(self) -> list:
         """
-        Get action history.
+        Get action history from JSON file.
         
         Returns:
             list: List of action dicts with timestamp, action, container, status
@@ -138,7 +140,7 @@ The dashboard exposes the following functions internally:
 Refresh Status
 def refresh_dashboard():
     """
-    Fetch latest container status and action history.
+    Fetch latest container status and action history from JSON.
     
     Returns:
         tuple: (status_text, history_text)
@@ -179,16 +181,55 @@ GET http://<agent-ip>:7860/
 # - / (main page)
 # - /gradio/ (Gradio static assets)
 # - /api/ (Gradio API endpoints)
-REST API (Planned)
-Future REST API endpoints:
+Persistent History API
+History File Location
+/tmp/containerguard_history.json
+File Format
+[
+  {
+    "timestamp": "2026-08-24T05:35:57.986681",
+    "action": "restart",
+    "container": "test-postgres",
+    "status": "success"
+  },
+  {
+    "timestamp": "2026-08-24T05:36:28.429983",
+    "action": "restart",
+    "container": "test-postgres",
+    "status": "success"
+  }
+]
+Reading History
+import json
 
-Endpoint	Method	Description
-/api/containers	GET	List all containers
-/api/containers/{name}	GET	Get container status
-/api/containers/{name}/restart	POST	Restart container
-/api/containers/{name}/stop	POST	Stop container
-/api/history	GET	Get action history
-/api/health	GET	Agent health check
+def get_history():
+    """Read history from JSON file"""
+    try:
+        with open('/tmp/containerguard_history.json', 'r') as f:
+            return json.load(f)
+    except:
+        return []
+Writing History
+import json
+from datetime import datetime
+
+def add_action(action_type, container_name, status):
+    """Add an action to history"""
+    history = get_history()
+    history.append({
+        'timestamp': datetime.now().isoformat(),
+        'action': action_type,
+        'container': container_name,
+        'status': status
+    })
+    with open('/tmp/containerguard_history.json', 'w') as f:
+        json.dump(history, f, indent=2)
+Action Types
+Action	Description
+restart	Container restarted
+stop	Container stopped (manual)
+cleanup	Unused containers removed
+error	An error occurred
 Webhook Integration
 Slack Webhooks (Future)
 Configuration:
@@ -206,7 +247,7 @@ Message Format:
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": "*Container:* `test-postgres`\n*Action:* Restarted\n*Time:* 2026-08-22 05:48:16"
+                "text": "*Container:* `test-postgres`\n*Action:* Restarted\n*Time:* 2026-08-24 05:35:57"
             }
         }
     ]
@@ -227,42 +268,25 @@ Message Format:
             "fields": [
                 {"name": "Container", "value": "test-postgres"},
                 {"name": "Action", "value": "Restarted"},
-                {"name": "Time", "value": "2026-08-22 05:48:16"}
+                {"name": "Time", "value": "2026-08-24 05:35:57"}
             ],
             "color": 16711680
         }
     ]
 }
-Custom Webhook (Future)
-Configuration:
-# config.yaml
-alerts:
-  webhook:
-    url: "https://my-api.example.com/events"
-    headers:
-      Authorization: "Bearer XXX"
-    format: "json"
-Payload Format:
-{
-    "event": "container_restart",
-    "timestamp": "2026-08-22T05:48:16Z",
-    "container": {
-        "name": "test-postgres",
-        "status": "running",
-        "image": "postgres:latest"
-    },
-    "agent": {
-        "version": "1.0.0",
-        "host": "vm1-agent"
-    }
-}
 Configuration API
+Environment Variables
+Variable	Default	Description
+DOCKER_HOST	unix:///var/run/docker.sock	Docker daemon URL
+AGENT_INTERVAL	30	Monitoring interval (seconds)
+LOG_LEVEL	INFO	Logging level
+HISTORY_FILE	/tmp/containerguard_history.json	History file path
 YAML Configuration (Planned)
 config.yaml:
 # Global settings
 agent:
-  interval: 30  # seconds between checks
-  cooldown: 60  # seconds between restarts
+  interval: 30
+  cooldown: 60
   log_level: INFO
 
 # Docker connection
@@ -278,81 +302,23 @@ rules:
     action: "restart"
     cooldown: 60
 
-  - name: "Cleanup unused images"
-    condition: "disk_usage > 80%"
-    action: "cleanup"
-    schedule: "daily"
-
 # Alerts
 alerts:
   slack:
     webhook_url: "https://hooks.slack.com/services/XXX/YYY/ZZZ"
     channel: "#alerts"
-    events: ["restart", "cleanup", "error"]
-
-  discord:
-    webhook_url: "https://discord.com/api/webhooks/XXX/YYY"
-    events: ["restart", "cleanup"]
-Loading Configuration
-import yaml
-
-def load_config():
-    """Load configuration from config.yaml"""
-    with open('config.yaml', 'r') as f:
-        return yaml.safe_load(f)
-
-# Usage
-config = load_config()
-interval = config['agent']['interval']
-docker_host = config['docker']['host']
-Database Schema
-SQLite Tables
-Action History Table:
-CREATE TABLE action_history (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    timestamp TEXT NOT NULL,
-    action TEXT NOT NULL,  -- restart, stop, cleanup
-    container TEXT NOT NULL,
-    status TEXT NOT NULL,  -- success, failed
-    error TEXT DEFAULT NULL
-);
-Container Status Table (Planned):
-CREATE TABLE container_status (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT UNIQUE NOT NULL,
-    status TEXT NOT NULL,  -- running, exited, paused
-    last_checked TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    restart_count INTEGER DEFAULT 0,
-    last_restart TIMESTAMP
-);
-Accessing the Database
-import sqlite3
-
-def get_db_connection():
-    """Get SQLite database connection"""
-    conn = sqlite3.connect('containerguard.db')
-    conn.row_factory = sqlite3.Row
-    return conn
-
-def get_recent_actions(limit=10):
-    """Get recent actions from history"""
-    conn = get_db_connection()
-    cursor = conn.execute(
-        'SELECT * FROM action_history ORDER BY timestamp DESC LIMIT ?',
-        (limit,)
-    )
-    return cursor.fetchall()
 Error Codes
 Code	Description	Resolution
 E001	Docker connection failed	Check DOCKER_HOST and network
 E002	Container not found	Verify container name/ID
 E003	Permission denied	Check SELinux/file permissions
 E004	Action cooldown active	Wait for cooldown to expire
-E005	Configuration error	Validate YAML/JSON syntax
-E006	Database error	Check SQLite permissions
+E005	JSON history read/write error	Check /tmp permissions
+E006	Configuration error	Validate YAML/JSON syntax
 E007	Webhook failed	Check webhook URL and network
 Examples
 Example 1: Basic Monitoring
+
 from agent.core import ContainerGuardAgent
 
 # Initialize agent
@@ -366,21 +332,20 @@ for r in results:
     print(f"Container: {r['name']}")
     print(f"Status: {r['status']}")
     print("---")
-Example 2: Action History
-from agent.actions import ContainerActions
-import docker
+Example 2: Reading History
+import json
 
-# Connect to Docker
-client = docker.DockerClient(base_url='tcp://192.168.217.163:2375')
-actions = ContainerActions(client)
+def get_history():
+    try:
+        with open('/tmp/containerguard_history.json', 'r') as f:
+            return json.load(f)
+    except:
+        return []
 
-# Get action history
-history = actions.get_history()
-
-# Print last 5 actions
+# Get last 5 actions
+history = get_history()
 for action in history[-5:]:
     print(f"{action['timestamp']}: {action['action']} {action['container']}")
-    print(f"  Status: {action['status']}")
 Example 3: Manual Container Management
 from agent.actions import ContainerActions
 import docker
@@ -393,12 +358,6 @@ if actions.restart_container('test-postgres'):
     print("✅ Container restarted successfully")
 else:
     print("❌ Failed to restart container")
-
-# Stop a container
-if actions.stop_container('test-nginx'):
-    print("✅ Container stopped successfully")
-else:
-    print("❌ Failed to stop container")
 Example 4: Custom Webhook Integration
 import requests
 from agent.core import ContainerGuardAgent
@@ -448,19 +407,15 @@ class CustomAgent(ContainerGuardAgent):
                 restarted_count += 1
         
         return restarted_count
-Integration Patterns
+ntegration Patterns
 Pattern 1: Agent as a Library
 # embed.py
 from agent.core import ContainerGuardAgent
 
 def my_application():
-    # Initialize agent
     agent = ContainerGuardAgent()
-    
-    # Use agent for monitoring
     while True:
         results = agent.run_once()
-        # Custom processing
         process_results(results)
         time.sleep(60)
 Pattern 2: Agent as a Service
@@ -468,48 +423,43 @@ Pattern 2: Agent as a Service
 sudo systemctl start containerguard
 sudo systemctl status containerguard
 sudo journalctl -u containerguard -f
-Pattern 3: Agent in a Container
-# Dockerfile
-FROM python:3.9-slim
-COPY . /app
-WORKDIR /app
-RUN pip install -r requirements.txt
-CMD ["python", "agent/runner.py"]
-# Build and run
-docker build -t containerguard .
-docker run -d --name containerguard \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  containerguard
+Pattern 3: Reading History from External Script
+# monitor_history.py
+import json
+import time
+
+def tail_history():
+    """Continuously monitor history file"""
+    last_count = 0
+    while True:
+        try:
+            with open('/tmp/containerguard_history.json', 'r') as f:
+                history = json.load(f)
+            if len(history) > last_count:
+                new_actions = history[last_count:]
+                for action in new_actions:
+                    print(f"New action: {action}")
+                last_count = len(history)
+        except:
+            pass
+        time.sleep(5)
+
+if __name__ == "__main__":
+    tail_history()
 Future API Extensions
-Prometheus Exporter
-# prometheus.yml
-scrape_configs:
-  - job_name: 'containerguard'
-    static_configs:
-      - targets: ['localhost:8000']
-RESTful API
+RESTful API (Planned)
 GET    /api/v1/containers          # List all containers
 GET    /api/v1/containers/{id}     # Get container details
 POST   /api/v1/containers/{id}/restart
 POST   /api/v1/containers/{id}/stop
 GET    /api/v1/history             # Get action history
 GET    /api/v1/health              # Health check
-GraphQL API (Planned)
-query {
-    containers {
-        name
-        status
-        image
-        uptime
-        restartCount
-    }
-    history(limit: 10) {
-        timestamp
-        action
-        container
-        status
-    }
-}
+Prometheus Exporter (Planned)
+# prometheus.yml
+scrape_configs:
+  - job_name: 'containerguard'
+    static_configs:
+      - targets: ['localhost:8000']
 Testing
 # test_api.py
 import unittest
@@ -527,12 +477,17 @@ class TestAgentAPI(unittest.TestCase):
         results, count = self.agent.check_and_heal()
         self.assertIsInstance(results, list)
         self.assertIsInstance(count, int)
+    
+    def test_history_file(self):
+        import os
+        self.assertTrue(os.path.exists('/tmp/containerguard_history.json'))
 📚 Related Documentation
 README.md - Project overview
 
 INSTALL.md - Installation guide
 
 ARCHITECTURE.md - Technical architecture
+
 🤝 Contributing
 If you'd like to extend the API, please:
 
