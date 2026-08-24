@@ -55,7 +55,7 @@ print_info "Installation directory: $INSTALL_DIR"
 
 if [[ -d "$INSTALL_DIR" ]]; then
     print_warning "Directory exists: $INSTALL_DIR"
-    read -p "Remove existing installation? (y/N) " -n 1 -r
+    read -p "Remove existing installation? (y/N) " -n 1 -r </dev/tty
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         print_info "Removing existing installation..."
@@ -103,11 +103,11 @@ print_info "Docker Configuration:"
 echo "  1) Local Docker (same machine) - Default"
 echo "  2) Remote Docker (different machine)"
 echo "  3) Skip (configure manually later)"
-read -p "Choose option (1-3): " DOCKER_OPTION
+read -p "Choose option (1-3): " DOCKER_OPTION </dev/tty
 
 case $DOCKER_OPTION in
     1) print_info "Using local Docker" ;;
-    2) read -p "Enter remote Docker IP: " REMOTE_IP
+    2) read -p "Enter remote Docker IP: " REMOTE_IP </dev/tty
        echo "export DOCKER_HOST=tcp://$REMOTE_IP:2375" >> "$INSTALL_DIR/.env" ;;
     3) print_info "Skipping Docker configuration." ;;
     *) print_warning "Invalid option. Using local Docker." ;;
@@ -139,6 +139,21 @@ if [[ "$DASHBOARD_OPTION" == "1" ]]; then
     sudo systemctl enable containerguard-dashboard
     sudo systemctl start containerguard-dashboard
     print_success "Dashboard service started"
+
+    # Open firewall for dashboard
+    print_info "Configuring firewall for dashboard..."
+    if ! systemctl is-active --quiet firewalld 2>/dev/null; then
+        print_info "Starting firewalld..."
+        sudo systemctl start firewalld 2>/dev/null || true
+        sudo systemctl enable firewalld 2>/dev/null || true
+    fi
+    if command -v firewall-cmd &> /dev/null; then
+        sudo firewall-cmd --add-port=7860/tcp --permanent 2>/dev/null || true
+        sudo firewall-cmd --reload 2>/dev/null || true
+        print_success "Firewall port 7860 opened"
+    else
+        print_warning "firewalld not found. Please open port 7860 manually."
+    fi
 fi
 
 cat > "$INSTALL_DIR/.env" << 'ENVEOF'
