@@ -62,7 +62,7 @@ def refresh_dashboard():
             status = action.get('status', 'N/A')
             history_text += f"**{ts}**: {act} {container} - {status}\n"
     else:
-        history_text += "No actions recorded yet."
+        history_text += "No actions recorded yet. The agent will log actions as it monitors containers."
     
     return status_text, history_text
 
