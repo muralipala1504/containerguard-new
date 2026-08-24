@@ -117,7 +117,7 @@ echo ""
 print_info "Install Gradio Dashboard?"
 echo "  1) Yes (recommended)"
 echo "  2) No (agent only)"
-read -p "Choose option (1-2): " DASHBOARD_OPTION
+read -p "Choose option (1-2): " DASHBOARD_OPTION </dev/tty
 
 print_info "Installing systemd service..."
 sudo cp deploy/containerguard.service /etc/systemd/system/
