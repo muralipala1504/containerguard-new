@@ -2,14 +2,14 @@
 # ContainerGuard - One-Line Installer
 # Usage: curl -sSL https://raw.githubusercontent.com/muralipala1504/containerguard-new/master/install.sh | bash
 
-set -e
+set -e  # Exit on error
 
-# Colors
-RED="\033[0;31m"
-GREEN="\033[0;32m"
-YELLOW="\033[1;33m"
-BLUE="\033[0;34m"
-NC="\033[0m"
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
 
 print_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 print_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
@@ -43,13 +43,13 @@ if ! command -v docker &> /dev/null; then
     print_error "Docker is not installed."
     exit 1
 fi
-print_success "Docker found: $(docker --version | cut -d" " -f3 | tr -d ",")"
+print_success "Docker found: $(docker --version | cut -d' ' -f3 | tr -d ',')"
 
 if ! command -v python3 &> /dev/null; then
     print_error "Python 3 is not installed."
     exit 1
 fi
-print_success "Python found: $(python3 --version | cut -d" " -f2)"
+print_success "Python found: $(python3 --version | cut -d' ' -f2)"
 
 INSTALL_DIR="/home/$INSTALL_USER/containerguard-new"
 print_info "Installation directory: $INSTALL_DIR"
@@ -93,7 +93,7 @@ pip install --upgrade pip > /dev/null 2>&1
 pip install -r requirements.txt
 
 print_info "Testing Docker connection..."
-if python -c "import docker; c=docker.DockerClient(base_url="unix:///var/run/docker.sock"); c.ping()" 2>/dev/null; then
+if python -c "import docker; c=docker.DockerClient(base_url='unix:///var/run/docker.sock'); c.ping()" 2>/dev/null; then
     print_success "Docker connection successful"
 else
     print_warning "Cannot connect to local Docker. If using remote Docker, configure DOCKER_HOST."
@@ -142,7 +142,7 @@ if [[ "$DASHBOARD_OPTION" == "1" ]]; then
     print_success "Dashboard service started"
 fi
 
-cat > "$INSTALL_DIR/.env" << "ENVEOF"
+cat > "$INSTALL_DIR/.env" << 'ENVEOF'
 DOCKER_HOST=unix:///var/run/docker.sock
 AGENT_INTERVAL=30
 LOG_LEVEL=INFO
@@ -159,7 +159,7 @@ echo "📋 Installation Summary:"
 echo "  📁 Location: $INSTALL_DIR"
 echo "  🔧 Service: containerguard (systemd)"
 if [[ "$DASHBOARD_OPTION" == "1" ]]; then
-    echo "  📊 Dashboard: http://$(hostname -I | awk "{print \$1}"):7860"
+    echo "  📊 Dashboard: http://$(hostname -I | awk '{print $1}'):7860"
 else
     echo "  📊 Dashboard: Not installed"
 fi
