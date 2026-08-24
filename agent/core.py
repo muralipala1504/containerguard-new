@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from agent.actions import ContainerActions
 
 # Setup logging
-logging.basicConfig(
+logging.basicConfig(handlers=[logging.FileHandler("/var/log/containerguard.log"), logging.StreamHandler()], 
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
