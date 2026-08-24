@@ -5,8 +5,8 @@ Wants=containerguard.service
 
 [Service]
 Type=simple
-User=ruser
-Group=ruser
+User=root
+Group=root
 WorkingDirectory=/home/ruser/containerguard-new
 Environment="PATH=/home/ruser/containerguard-new/venv/bin:/usr/local/bin:/usr/bin:/bin"
 ExecStart=/home/ruser/containerguard-new/venv/bin/python /home/ruser/containerguard-new/dashboard/app.py
