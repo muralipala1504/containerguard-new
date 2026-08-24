@@ -1,18 +1,14 @@
-<<<<<<< HEAD
-404: Not Found
-=======
 #!/bin/bash
 # ContainerGuard - One-Line Installer
 # Usage: curl -sSL https://raw.githubusercontent.com/muralipala1504/containerguard-new/master/install.sh | bash
 
-set -e  # Exit on error
+set -e
 
-# Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 print_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 print_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
@@ -184,4 +180,3 @@ echo "  API.md         - API reference"
 echo ""
 echo "🔗 GitHub: https://github.com/muralipala1504/containerguard-new"
 echo "═══════════════════════════════════════════════════════════════"
->>>>>>> 67582a31076ab467712016df061a24a7d2158e82
