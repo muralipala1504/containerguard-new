@@ -3,7 +3,6 @@
 Detailed step-by-step instructions for installing ContainerGuard on AlmaLinux 9, Ubuntu 22.04+, or RHEL-based systems.
 
 ---
-
 ## 📋 Prerequisites
 
 | Requirement | Minimum | Recommended |
@@ -12,8 +11,20 @@ Detailed step-by-step instructions for installing ContainerGuard on AlmaLinux 9,
 | **CPU** | 2 cores | 4 cores |
 | **RAM** | 2 GB | 4 GB |
 | **Disk** | 10 GB | 20 GB |
-| **Docker** | 20.10+ | Latest |
+| **Docker** | **Auto-installed by installer** | Latest |
 | **Python** | 3.9+ | 3.9+ |
+
+> **Note**: The installer **automatically installs Docker** if it's not present. You don't need to install Docker manually.
+
+### Docker Auto-Installation
+
+If Docker is not installed on your system, the installer will:
+1. ✅ Detect your OS (AlmaLinux, RHEL, CentOS, Ubuntu, Debian)
+2. ✅ Install Docker using the official repositories
+3. ✅ Start Docker and enable it on boot
+4. ✅ Add your user to the `docker` group
+
+**No manual Docker installation needed!**
 
 ### Check Your System
 
