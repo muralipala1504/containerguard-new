@@ -359,6 +359,53 @@ class DiscordAlert:
         webhook = os.getenv('DISCORD_WEBHOOK')
         requests.post(webhook, json={'content': message})
 Deployment Topologies
+## Worker Node Setup (Remote Docker)
+
+### Enable Docker API on Worker
+
+For remote Docker monitoring, the worker node must expose the Docker API:
+
+```bash
+# On worker node (where containers run)
+sudo mkdir -p /etc/systemd/system/docker.service.d
+sudo tee /etc/systemd/system/docker.service.d/override.conf << 'EOF'
+[Service]
+ExecStart=
+ExecStart=/usr/bin/dockerd -H fd:// -H tcp://0.0.0.0:2375
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+
+# Open firewall port
+sudo firewall-cmd --add-port=2375/tcp --permanent
+sudo firewall-cmd --reload
+
+Connect Agent to Worker
+During installation, when prompted:
+
+Docker Configuration:
+  1) Local Docker (same machine) - Default
+  2) Remote Docker (different machine)
+  3) Skip (configure manually later)
+Choose option (1-3): 2
+Enter remote Docker IP: 192.168.1.100
+
+The agent will then monitor containers on the remote worker node.
+
+Security Note
+⚠️ For production: Use TLS certificates or SSH tunneling instead of plain TCP.
+
+
+---
+
+## 🧪 **Step 5: Verify ARCHITECTURE.md**
+
+```bash
+cat ~/containerguard-new/ARCHITECTURE.md | grep -A 15 "Worker Node Setup"
+
+
+
 Single Host (Local Docker)
 ┌─────────────────────────────────────┐
 │        Host Machine                 │
