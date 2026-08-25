@@ -116,6 +116,63 @@ class ContainerActions:
             list: List of action dicts with timestamp, action, container, status
         """
         pass
+
+## 🐛 Troubleshooting
+
+### Dashboard Service Fails with Permission Denied
+
+If the dashboard service fails with `Permission denied` on `/var/log/containerguard.log`:
+
+```bash
+sudo tee /etc/systemd/system/containerguard-dashboard.service > /dev/null << 'EOF'
+[Unit]
+Description=ContainerGuard Dashboard
+After=network.target containerguard.service
+Wants=containerguard.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/home/ruser/containerguard-new
+Environment="PATH=/home/ruser/containerguard-new/venv/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/home/ruser/containerguard-new/venv/bin/python /home/ruser/containerguard-new/dashboard/app.py
+Restart=always
+RestartSec=10
+StandardOutput=append:/var/log/containerguard-dashboard.log
+StandardError=append:/var/log/containerguard-dashboard-error.log
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl restart containerguard-dashboard
+
+SELinux Blocking Execution
+If the agent or dashboard fails with status=203/EXEC:
+
+# Try SELinux permissive mode
+sudo setenforce 0
+sudo systemctl restart containerguard
+sudo systemctl restart containerguard-dashboard
+
+# If it works, add SELinux context
+sudo chcon -R -t bin_t /home/ruser/containerguard-new/venv/bin/
+sudo setenforce 1
+sudo systemctl restart containerguard
+sudo systemctl restart containerguard-dashboard
+
+
+---
+
+## 🧪 **Step 6: Verify API.md**
+
+```bash
+cat ~/containerguard-new/API.md | grep -A 10 "Troubleshooting"
+
+
+
 Usage Example
 from agent.core import ContainerGuardAgent
 
