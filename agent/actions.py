@@ -4,6 +4,11 @@ import json
 import os
 from datetime import datetime, timedelta
 
+# Import license module
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from license import get_history_days
+
 logger = logging.getLogger(__name__)
 
 class ContainerActions:
@@ -13,7 +18,7 @@ class ContainerActions:
         self.action_history = self._load_history()
 
     def _load_history(self):
-        """Load history from file and trim to 7 days"""
+        """Load history from file and trim based on license"""
         if os.path.exists(self.history_file):
             try:
                 with open(self.history_file, 'r') as f:
@@ -24,8 +29,12 @@ class ContainerActions:
         return []
 
     def _trim_history(self, history):
-        """Remove entries older than 7 days"""
-        cutoff = datetime.now() - timedelta(days=7)
+        """Remove entries older than license allows"""
+        days = get_history_days()
+        if days == 0:
+            return history  # Unlimited (Pro tier)
+        
+        cutoff = datetime.now() - timedelta(days=days)
         trimmed = []
         for entry in history:
             try:
@@ -33,7 +42,6 @@ class ContainerActions:
                 if entry_time > cutoff:
                     trimmed.append(entry)
             except (KeyError, ValueError):
-                # If timestamp is missing or invalid, keep the entry
                 trimmed.append(entry)
         return trimmed
 
