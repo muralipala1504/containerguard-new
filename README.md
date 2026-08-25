@@ -73,13 +73,13 @@ ContainerGuard is a lightweight, autonomous agent that monitors Docker container
 └─────────────────────┘
 
 ---
-
 ## ⚡ Quick Start
 
 ### One-Line Installation
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/muralipala1504/containerguard-new/master/install.sh | bash
+
 What Happens Automatically
 The installer will:
 
