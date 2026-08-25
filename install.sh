@@ -37,10 +37,29 @@ else
     print_error "Cannot detect OS."
     exit 1
 fi
-
+# Check and install Docker if missing
 if ! command -v docker &> /dev/null; then
-    print_error "Docker is not installed."
-    exit 1
+    print_warning "Docker is not installed. Installing..."
+    
+    # Detect OS and install Docker
+    if [[ "$ID" == "almalinux" ]] || [[ "$ID" == "rhel" ]] || [[ "$ID" == "centos" ]]; then
+        sudo dnf install -y dnf-utils
+        sudo dnf config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
+        sudo dnf install -y docker-ce docker-ce-cli containerd.io
+    elif [[ "$ID" == "ubuntu" ]] || [[ "$ID" == "debian" ]]; then
+        sudo apt update
+        sudo apt install -y docker.io
+    else
+        print_error "Unsupported OS. Please install Docker manually."
+        exit 1
+    fi
+    
+    sudo systemctl enable --now docker
+    sudo usermod -aG docker $INSTALL_USER
+    print_success "Docker installed successfully"
+else
+    DOCKER_VERSION=$(docker --version | cut -d' ' -f3 | tr -d ',')
+    print_success "Docker found: $DOCKER_VERSION"
 fi
 print_success "Docker found: $(docker --version | cut -d' ' -f3 | tr -d ',')"
 
