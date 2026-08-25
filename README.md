@@ -75,6 +75,101 @@ ContainerGuard is a lightweight, autonomous agent that monitors Docker container
 ---
 ## ⚡ Quick Start
 
+## 🐳 Docker Quick Start
+
+```bash
+# Clone and run
+git clone https://github.com/muralipala1504/containerguard-new.git
+cd containerguard-new
+docker compose up -d
+
+# Check status
+docker compose ps
+
+# Access dashboard
+http://localhost:7860
+
+Docker vs VM Installation
+Method	Command	Best For
+VM (install.sh)	curl ... | bash	Production VMs, systemd integration
+Docker	docker compose up -d	Container environments, quick testing
+
+
+---
+
+## 🔧 **Step 2: Update INSTALL.md**
+
+Add a new section after the manual installation:
+
+```markdown
+## 🐳 Docker Installation
+
+### Prerequisites
+- Docker Engine 20.10+
+- Docker Compose (or Docker with compose plugin)
+
+### Steps
+
+```bash
+# Clone the repository
+git clone https://github.com/muralipala1504/containerguard-new.git
+cd containerguard-new
+
+# Start the services
+docker compose up -d
+
+# Check status
+docker compose ps
+
+# View logs
+docker compose logs -f
+
+Configuration
+Set environment variables in docker-compose.yml:
+
+environment:
+  - DOCKER_HOST=unix:///var/run/docker.sock  # Local Docker
+  - AGENT_INTERVAL=30
+  - LOG_LEVEL=INFO
+
+
+---
+
+## 🔧 **Step 3: Update ARCHITECTURE.md**
+
+Add a Docker architecture section:
+
+```markdown
+## 🐳 Docker Architecture
+
+
+┌─────────────────────────────────────────────────────────────────┐
+│ Docker Compose Setup │
+├─────────────────────────────────────────────────────────────────┤
+│ │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ containerguard-agent (container) │ │
+│ │ - Monitors Docker via mounted socket │ │
+│ │ - Auto-restarts exited containers │ │
+│ └─────────────────────────────────────────────────────────┘ │
+│ │ │
+│ ▼ │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ containerguard-dashboard (container) │ │
+│ │ - Gradio web UI on port 7860 │ │
+│ │ - Reads shared history file │ │
+│ └─────────────────────────────────────────────────────────┘ │
+│ │ │
+│ ▼ │
+│ /var/run/docker.sock │
+│ │ │
+│ ▼ │
+│ Docker Engine (host) │
+└─────────────────────────────────────────────────────────────────┘
+
+
+
+
 ### One-Line Installation
 
 ```bash
