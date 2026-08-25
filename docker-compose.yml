@@ -1,0 +1,40 @@
+services:
+  agent:
+    build: .
+    container_name: containerguard-agent
+    command: python agent/runner.py
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - containerguard-data:/app/data
+    environment:
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - AGENT_INTERVAL=30
+      - LOG_LEVEL=INFO
+    restart: unless-stopped
+    networks:
+      - containerguard-net
+
+  dashboard:
+    build: .
+    container_name: containerguard-dashboard
+    command: python dashboard/app.py
+    ports:
+      - "7860:7860"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - containerguard-data:/app/data
+    environment:
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    restart: unless-stopped
+    depends_on:
+      - agent
+    networks:
+      - containerguard-net
+
+volumes:
+  containerguard-data:
+    driver: local
+
+networks:
+  containerguard-net:
+    driver: bridge
