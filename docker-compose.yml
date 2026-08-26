@@ -6,6 +6,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - containerguard-data:/app/data
+      - /tmp:/tmp
     environment:
       - DOCKER_HOST=unix:///var/run/docker.sock
       - AGENT_INTERVAL=30
@@ -23,6 +24,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - containerguard-data:/app/data
+      - /tmp:/tmp
     environment:
       - DOCKER_HOST=unix:///var/run/docker.sock
       - AGENT_INTERVAL=30
