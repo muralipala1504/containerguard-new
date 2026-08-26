@@ -1,0 +1,14 @@
+venv/
+__pycache__/
+*.pyc
+*.log
+*.db
+.git/
+.gitignore
+README.md
+INSTALL.md
+ARCHITECTURE.md
+API.md
+LICENSE
+deploy/
+install.sh
