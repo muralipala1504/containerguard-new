@@ -1,22 +1,16 @@
-"""
-ContainerGuard Agent - Core Monitoring Module
-Now with auto-healing capabilities
-"""
-
 import docker
 import logging
-import time
-import sys
 import os
+import sys
 from datetime import datetime
-
-# Add parent directory to path for imports
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from agent.actions import ContainerActions
 
+# Add parent directory to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 # Setup logging
-logging.basicConfig(handlers=[logging.FileHandler("/var/log/containerguard.log"), logging.StreamHandler()], 
+logging.basicConfig(
+    handlers=[logging.FileHandler("/var/log/containerguard.log"), logging.StreamHandler()],
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
@@ -25,7 +19,9 @@ logger = logging.getLogger(__name__)
 class ContainerGuardAgent:
     """Main agent class with auto-healing"""
     
-    def __init__(self, docker_host='tcp://192.168.217.163:2375'):
+    def __init__(self, docker_host=None):
+        if docker_host is None:
+            docker_host = os.getenv("DOCKER_HOST", "unix:///var/run/docker.sock")
         try:
             self.client = docker.DockerClient(base_url=docker_host)
             self.actions = ContainerActions(self.client)
@@ -53,7 +49,6 @@ class ContainerGuardAgent:
             status = container.status
             name = container.name
             
-            # Auto-heal: restart exited containers
             if status == 'exited':
                 logger.warning(f"⚠️ {name}: EXITED - Attempting restart...")
                 if self.actions.restart_container(container.id):
@@ -61,10 +56,8 @@ class ContainerGuardAgent:
                     status = 'restarted'
                 else:
                     status = 'exited_failed'
-            
             elif status == 'running':
                 logger.info(f"✅ {name}: RUNNING")
-            
             else:
                 logger.info(f"ℹ️ {name}: {status}")
             
@@ -92,7 +85,6 @@ if __name__ == "__main__":
         status_icon = "🔄" if r['status'] == 'restarted' else ("⚠️" if r['status'] == 'exited_failed' else "✅")
         print(f"  {status_icon} {r['name']}: {r['status']}")
     
-    # Show action history
     history = agent.actions.get_history()
     if history:
         print("\n📜 Action History:")
