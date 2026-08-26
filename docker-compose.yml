@@ -4,11 +4,10 @@ services:
     container_name: containerguard-agent
     command: python agent/runner.py
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
       - containerguard-data:/app/data
       - /tmp:/tmp
     environment:
-      - DOCKER_HOST=unix:///var/run/docker.sock
+      - DOCKER_HOST=tcp://192.168.217.163:2375
       - AGENT_INTERVAL=30
       - LOG_LEVEL=INFO
     restart: unless-stopped
@@ -22,11 +21,10 @@ services:
     ports:
       - "7860:7860"
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
       - containerguard-data:/app/data
       - /tmp:/tmp
     environment:
-      - DOCKER_HOST=unix:///var/run/docker.sock
+      - DOCKER_HOST=tcp://192.168.217.163:2375
       - AGENT_INTERVAL=30
       - LOG_LEVEL=INFO
     restart: unless-stopped
