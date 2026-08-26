@@ -24,7 +24,52 @@ If Docker is not installed on your system, the installer will:
 3. ✅ Start Docker and enable it on boot
 4. ✅ Add your user to the `docker` group
 
+
 **No manual Docker installation needed!**
+
+### Remote Docker Setup (Two VMs)
+
+If you have a separate **worker VM** (where your containers run) and a **control VM** (where ContainerGuard runs), follow these steps:
+
+#### Step 1: Expose Docker API on Worker VM
+
+```bash
+# On worker VM (where containers run)
+sudo mkdir -p /etc/systemd/system/docker.service.d
+sudo tee /etc/systemd/system/docker.service.d/override.conf << 'EOF'
+[Service]
+ExecStart=
+ExecStart=/usr/bin/dockerd -H fd:// -H tcp://0.0.0.0:2375
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+
+# Open firewall port
+sudo firewall-cmd --add-port=2375/tcp --permanent
+sudo firewall-cmd --reload
+
+Step 2: Configure ContainerGuard to Use Remote Docker
+For VM Installer:
+
+# During installation, select option 2
+Docker Configuration:
+  1) Local Docker (same machine) - Default
+  2) Remote Docker (different machine)
+  3) Skip (configure manually later)
+Choose option (1-3): 2
+Enter remote Docker IP: 192.168.1.100
+
+For Docker Compose:
+
+# Edit docker-compose.yml
+# Change DOCKER_HOST from local to remote
+environment:
+  - DOCKER_HOST=tcp://192.168.1.100:2375
+
+Security Note
+⚠️ For production, use TLS certificates or SSH tunneling instead of plain TCP.
+
 
 ### Check Your System
 
