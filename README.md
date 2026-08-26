@@ -77,6 +77,27 @@ ContainerGuard is a lightweight, autonomous agent that monitors Docker container
 
 ## 🐳 Docker Quick Start
 
+### Remote Docker Monitoring (Two VMs)
+
+If your containers run on a separate VM, set `DOCKER_HOST` in `docker-compose.yml`:
+
+```yaml
+environment:
+  - DOCKER_HOST=tcp://<worker-ip>:2375
+
+For detailed setup, see INSTALL.md.
+
+
+---
+
+## 🎯 **What to Tell Me**
+
+After running Step 1, tell me:
+- **"INSTALL.md committed and pushed"**
+
+Then we'll update README.md. 🚀
+
+
 ```bash
 # Clone and run
 git clone https://github.com/muralipala1504/containerguard-new.git
