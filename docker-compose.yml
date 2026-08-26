@@ -25,6 +25,8 @@ services:
       - containerguard-data:/app/data
     environment:
       - DOCKER_HOST=unix:///var/run/docker.sock
+      - AGENT_INTERVAL=30
+      - LOG_LEVEL=INFO
     restart: unless-stopped
     depends_on:
       - agent
