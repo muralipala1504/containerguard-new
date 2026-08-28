@@ -3,10 +3,16 @@ import logging
 import os
 import sys
 from datetime import datetime
-from agent.actions import ContainerActions
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Try relative import
+try:
+    from agent.actions import ContainerActions
+except ImportError:
+    # Fallback to absolute import
+    from agent.actions import ContainerActions
 
 # Setup logging
 logging.basicConfig(
