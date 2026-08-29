@@ -2,12 +2,23 @@ import docker
 import logging
 import json
 import os
+import sys
 from datetime import datetime, timedelta
 
-# Import license module
-import sys
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from license import get_history_days
+# Add Pro repo to path
+PRO_PATH = "/home/ruser/containerguard-pro"
+if PRO_PATH not in sys.path:
+    sys.path.insert(0, PRO_PATH)
+
+# Import license check
+from license import check_license
+
+# Import SlackAlert from Pro repo (renamed module)
+try:
+    from pro_agent.slack import SlackAlert
+    SLACK_AVAILABLE = True
+except ImportError:
+    SLACK_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -16,25 +27,34 @@ class ContainerActions:
         self.client = client
         self.history_file = "/tmp/containerguard_history.json"
         self.action_history = self._load_history()
+        self.is_pro = check_license()
+        
+        # Initialize Slack if Pro
+        self.slack = None
+        if self.is_pro and SLACK_AVAILABLE:
+            try:
+                self.slack = SlackAlert()
+                logger.info("✅ Pro features enabled: Slack alerts")
+            except Exception as e:
+                logger.warning(f"⚠️ Slack initialization failed: {e}")
+        elif self.is_pro and not SLACK_AVAILABLE:
+            logger.warning("⚠️ Pro features not available: No module named 'pro_agent.slack'")
+        else:
+            logger.info("ℹ️ Free tier: 7-day history limit, no Slack alerts")
 
     def _load_history(self):
-        """Load history from file and trim based on license"""
         if os.path.exists(self.history_file):
             try:
                 with open(self.history_file, 'r') as f:
-                    history = json.load(f)
-                    return self._trim_history(history)
+                    return json.load(f)
             except:
                 return []
         return []
 
     def _trim_history(self, history):
-        """Remove entries older than license allows"""
-        days = get_history_days()
-        if days == 0:
-            return history  # Unlimited (Pro tier)
-        
-        cutoff = datetime.now() - timedelta(days=days)
+        if self.is_pro:
+            return history
+        cutoff = datetime.now() - timedelta(days=7)
         trimmed = []
         for entry in history:
             try:
@@ -46,9 +66,7 @@ class ContainerActions:
         return trimmed
 
     def _save_history(self):
-        """Save history to file"""
         try:
-            # Trim before saving
             self.action_history = self._trim_history(self.action_history)
             with open(self.history_file, 'w') as f:
                 json.dump(self.action_history, f, indent=2)
@@ -67,6 +85,8 @@ class ContainerActions:
                 'status': 'success'
             })
             self._save_history()
+            if self.is_pro and self.slack:
+                self.slack.send_alert(container.name, "restarted", "success")
             return True
         except Exception as e:
             logger.error(f"❌ Failed to restart {container_id}: {e}")
@@ -81,7 +101,6 @@ class ContainerActions:
             return False
 
     def get_history(self):
-        """Return history (already trimmed)"""
         return self.action_history
 
     def cleanup_exited_containers(self):

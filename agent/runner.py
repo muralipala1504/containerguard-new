@@ -1,9 +1,22 @@
+import sys
+import os
+
+# Force Pro repo path
+PRO_PATH = "/home/ruser/containerguard-pro"
+if PRO_PATH not in sys.path:
+    sys.path.insert(0, PRO_PATH)
+
+# Also add the current directory
+CURRENT_PATH = "/home/ruser/containerguard-new"
+if CURRENT_PATH not in sys.path:
+    sys.path.insert(0, CURRENT_PATH)
+
+# Now import the rest
 import time
 import logging
-import sys
 from core import ContainerGuardAgent
 
-# Setup logging to both console and file
+# Setup logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
