@@ -27,6 +27,48 @@ If Docker is not installed on your system, the installer will:
 
 **No manual Docker installation needed!**
 
+### Pro License Configuration
+
+During installation, you'll be prompted to choose between Free and Pro:
+
+Pro License Configuration:
+
+Free tier (7-day history, no Slack alerts)
+
+Pro tier (Unlimited history + Slack alerts)
+Choose option (1-2):
+
+
+- **Free tier**: 7-day history, no Slack alerts
+- **Pro tier**: Unlimited history + Slack alerts
+
+#### Manual Pro License Setup (if skipped during installation)
+
+```bash
+sudo mkdir -p /etc/containerguard
+sudo tee /etc/containerguard/license.json << 'EOF'
+{
+  "tier": "pro",
+  "issued_at": "2026-08-29",
+  "expires_at": "2027-08-29"
+}
+EOF
+sudo systemctl restart containerguard
+
+Slack Webhook Configuration (Pro only)
+
+# Add webhook to service file
+sudo tee -a /etc/systemd/system/containerguard.service << 'EOF'
+Environment="SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl restart containerguard
+
+Note: Slack alerts are only available in the Pro tier.
+
+
+
 ### Remote Docker Setup (Two VMs)
 
 If you have a separate **worker VM** (where your containers run) and a **control VM** (where ContainerGuard runs), follow these steps:
