@@ -287,16 +287,30 @@ restart	Container restarted
 stop	Container stopped (manual)
 cleanup	Unused containers removed
 error	An error occurred
+
 Webhook Integration
-Slack Webhooks (Future)
-Configuration:
-# config.yaml
-alerts:
-  slack:
-    webhook_url: "https://hooks.slack.com/services/XXX/YYY/ZZZ"
-    channel: "#alerts"
-    username: "ContainerGuard"
-Message Format:
+
+### Slack Webhooks (Pro)
+
+**Requires**: Pro license
+
+**Status**: ✅ Working (Active)
+
+#### Configuration
+
+1. Create a Slack app and get a webhook URL
+2. Add the webhook to the service:
+
+```bash
+sudo tee -a /etc/systemd/system/containerguard.service << 'EOF'
+Environment="SLACK_WEBHOOK_URL=https://hooks.slack.com/services/XXX/YYY/ZZZ"
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl restart containerguard
+
+Message Format
+
 {
     "text": "🚨 Container Restart Alert",
     "blocks": [
@@ -304,11 +318,23 @@ Message Format:
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": "*Container:* `test-postgres`\n*Action:* Restarted\n*Time:* 2026-08-24 05:35:57"
+                "text": "*Container:* `test-postgres`\n*Action:* Restarted\n*Time:* 2026-08-29 12:22:14"
             }
         }
     ]
 }
+
+Example Slack Message
+
+🚨 ContainerGuard Alert
+Container: test-postgres
+Action: restarted
+Status: success
+Time: 2026-08-29 12:22:14
+🔐 ContainerGuard Pro - Autonomous Docker Agent
+
+
+
 Discord Webhooks (Future)
 Configuration:
 # config.yaml
@@ -464,7 +490,7 @@ class CustomAgent(ContainerGuardAgent):
                 restarted_count += 1
         
         return restarted_count
-ntegration Patterns
+Integration Patterns
 Pattern 1: Agent as a Library
 # embed.py
 from agent.core import ContainerGuardAgent
