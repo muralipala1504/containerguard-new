@@ -137,7 +137,26 @@ print_info "Install Gradio Dashboard?"
 echo "  1) Yes (recommended)"
 echo "  2) No (agent only)"
 read -p "Choose option (1-2): " DASHBOARD_OPTION </dev/tty
+# Step 7: Pro License Configuration
+echo ""
+print_info "Pro License Configuration:"
+echo "  1) Free tier (7-day history, no Slack alerts)"
+echo "  2) Pro tier (Unlimited history + Slack alerts)"
+read -p "Choose option (1-2): " LICENSE_OPTION
 
+if [[ "$LICENSE_OPTION" == "2" ]]; then
+    print_info "Configuring Pro license..."
+    sudo mkdir -p /etc/containerguard
+    sudo tee /etc/containerguard/license.json << 'EOF'
+{
+  "tier": "pro",
+  "issued_at": "2026-08-29",
+  "expires_at": "2027-08-29"
+}
+EOF
+    print_success "Pro license configured"
+    print_info "Please set SLACK_WEBHOOK_URL in /etc/systemd/system/containerguard.service"
+fi
 print_info "Installing systemd service..."
 sudo cp deploy/containerguard.service /etc/systemd/system/
 sudo systemctl daemon-reload
