@@ -142,7 +142,7 @@ echo ""
 print_info "Pro License Configuration:"
 echo "  1) Free tier (7-day history, no Slack alerts)"
 echo "  2) Pro tier (Unlimited history + Slack alerts)"
-read -p "Choose option (1-2): " LICENSE_OPTION
+read -p "Choose option (1-2): " LICENSE_OPTION </dev/tty
 
 if [[ "$LICENSE_OPTION" == "2" ]]; then
     print_info "Configuring Pro license..."
