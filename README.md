@@ -25,6 +25,50 @@ ContainerGuard is a lightweight, autonomous agent that monitors Docker container
 | 🐳 **Docker Native** | Works with Docker and Docker Compose |
 | 🔒 **SELinux Ready** | Automatically configures SELinux contexts |
 
+## 💎 Pro Features
+
+| Feature | Free | Pro |
+|---------|------|-----|
+| Container monitoring | ✅ Unlimited | ✅ Unlimited |
+| Auto-restart | ✅ | ✅ |
+| Web dashboard | ✅ | ✅ |
+| Action history | 7 days | ✅ Unlimited |
+| Slack alerts | ❌ | ✅ |
+| Email alerts | ❌ | Coming soon |
+| Auto-cleanup | ❌ | Coming soon |
+| Multi-host | ❌ | Coming soon |
+
+### Activate Pro
+
+During installation, you'll be prompted to choose between Free and Pro:
+
+```bash
+Pro License Configuration:
+  1) Free tier (7-day history, no Slack alerts)
+  2) Pro tier (Unlimited history + Slack alerts)
+
+Choose option (1-2):
+
+Select 2 to activate Pro features.
+
+Slack Webhook Configuration
+For Pro users, configure Slack alerts:
+
+# Add webhook to service file
+sudo tee -a /etc/systemd/system/containerguard.service << 'EOF'
+Environment="SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+EOF
+
+# Restart the agent
+sudo systemctl daemon-reload
+sudo systemctl restart containerguard
+
+
+---
+
+
+
+
 ---
 
 ## 🏗️ Architecture
