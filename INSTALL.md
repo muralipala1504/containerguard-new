@@ -38,9 +38,64 @@ Free tier (7-day history, no Slack alerts)
 Pro tier (Unlimited history + Slack alerts)
 Choose option (1-2):
 
+Free tier: 7-day history, no Slack alerts
 
-- **Free tier**: 7-day history, no Slack alerts
-- **Pro tier**: Unlimited history + Slack alerts
+Pro tier: Unlimited history + Slack alerts + Auto-cleanup + Multi-Host
+
+Pro Features Setup
+Slack Webhook Configuration (Pro)
+
+# Add webhook to service file
+sudo tee -a /etc/systemd/system/containerguard.service << 'EOF'
+Environment="SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl restart containerguard
+
+Auto-Cleanup (Pro)
+Auto-cleanup removes unused Docker images, dangling volumes, and build cache automatically.
+
+Manual trigger:
+
+python -c "
+from agent.actions import ContainerActions
+import docker
+client = docker.DockerClient(base_url='unix:///var/run/docker.sock')
+actions = ContainerActions(client)
+result = actions.run_cleanup()
+print('Cleanup result:', result)
+"
+
+Scheduled cleanup (coming soon):
+
+# Add to crontab
+0 2 * * * cd /home/ruser/containerguard-new && source venv/bin/activate && python -c "from agent.actions import ContainerActions; import docker; actions = ContainerActions(docker.DockerClient()); actions.run_cleanup()"
+
+# Add to crontab
+0 2 * * * cd /home/ruser/containerguard-new && source venv/bin/activate && python -c "from agent.actions import ContainerActions; import docker; actions = ContainerActions(docker.DockerClient()); actions.run_cleanup()"
+
+Multi-Host Configuration (Pro)
+Monitor multiple Docker hosts from one dashboard:
+
+sudo mkdir -p /etc/containerguard
+sudo tee /etc/containerguard/hosts.conf << 'EOF'
+{
+  "hosts": [
+    {"name": "vm1-agent", "host": "unix:///var/run/docker.sock"},
+    {"name": "vm2-worker", "host": "tcp://192.168.217.163:2375"}
+  ]
+}
+EOF
+
+sudo systemctl restart containerguard
+
+Verify Multi-Host:
+
+sudo tail -20 /var/log/containerguard.log | grep -i "connected\|host"
+
+
+
 
 #### Manual Pro License Setup (if skipped during installation)
 

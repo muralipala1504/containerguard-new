@@ -27,16 +27,18 @@ ContainerGuard is a lightweight, autonomous agent that monitors Docker container
 
 ## 💎 Pro Features
 
+## 💎 Pro Features
+
 | Feature | Free | Pro |
 |---------|------|-----|
 | Container monitoring | ✅ Unlimited | ✅ Unlimited |
 | Auto-restart | ✅ | ✅ |
 | Web dashboard | ✅ | ✅ |
-| Action history | 7 days | ✅ Unlimited |
-| Slack alerts | ❌ | ✅ |
+| **Action history** | 7 days | ✅ **Unlimited** |
+| **Slack alerts** | ❌ | ✅ |
+| **Auto-cleanup** | ❌ | ✅ |
+| **Multi-Host** | ❌ | ✅ |
 | Email alerts | ❌ | Coming soon |
-| Auto-cleanup | ❌ | Coming soon |
-| Multi-host | ❌ | Coming soon |
 
 ### Activate Pro
 
@@ -46,22 +48,57 @@ During installation, you'll be prompted to choose between Free and Pro:
 Pro License Configuration:
   1) Free tier (7-day history, no Slack alerts)
   2) Pro tier (Unlimited history + Slack alerts)
-
 Choose option (1-2):
+Pro Features Setup
+Slack Alerts (Pro)
+Create a Slack app and get a webhook URL
 
-Select 2 to activate Pro features.
-
-Slack Webhook Configuration
-For Pro users, configure Slack alerts:
-
-# Add webhook to service file
+Add the webhook to the service:
 sudo tee -a /etc/systemd/system/containerguard.service << 'EOF'
 Environment="SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
 EOF
 
-# Restart the agent
 sudo systemctl daemon-reload
 sudo systemctl restart containerguard
+
+Auto-Cleanup (Pro)
+Auto-cleanup removes unused Docker images, dangling volumes, and build cache automatically.
+
+# Trigger cleanup manually
+python -c "
+from agent.actions import ContainerActions
+import docker
+client = docker.DockerClient(base_url='unix:///var/run/docker.sock')
+actions = ContainerActions(client)
+result = actions.run_cleanup()
+print('Cleanup result:', result)
+"
+
+# Trigger cleanup manually
+python -c "
+from agent.actions import ContainerActions
+import docker
+client = docker.DockerClient(base_url='unix:///var/run/docker.sock')
+actions = ContainerActions(client)
+result = actions.run_cleanup()
+print('Cleanup result:', result)
+"
+
+Multi-Host (Pro)
+Monitor multiple Docker hosts from one dashboard:
+
+sudo mkdir -p /etc/containerguard
+sudo tee /etc/containerguard/hosts.conf << 'EOF'
+{
+  "hosts": [
+    {"name": "host1", "host": "unix:///var/run/docker.sock"},
+    {"name": "host2", "host": "tcp://192.168.1.100:2375"}
+  ]
+}
+EOF
+
+sudo systemctl restart containerguard
+
 
 
 ---

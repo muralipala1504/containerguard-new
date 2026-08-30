@@ -83,6 +83,84 @@ ContainerGuard is a **lightweight, autonomous monitoring agent** designed to run
 
 ---
 
+## Multi-Host Architecture
+
+ContainerGuard Pro supports monitoring multiple Docker hosts from a single agent.
+
+### Architecture Diagram
+
+┌─────────────────────────────────────────────────────────────────┐
+│ ContainerGuard Agent │
+│ (vm1-agent) │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ Multi-Host Connector │ │
+│ │ - Loads hosts.conf │ │
+│ │ - Connects to each Docker host │ │
+│ │ - Monitors all hosts in parallel │ │
+│ └─────────────────────────────────────────────────────────┘ │
+│ │ │
+│ ┌─────────────────┼─────────────────┐ │
+│ ▼ ▼ ▼ │
+│ ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐ │
+│ │ Host 1 │ │ Host 2 │ │ Host 3 │ │
+│ │ (vm1-agent) │ │ (vm2-worker) │ │ (vm3-worker) │ │
+│ │ unix:///... │ │ tcp://...:2375 │ │ tcp://...:2375 │ │
+│ └─────────────────┘ └─────────────────┘ └─────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+
+
+### Hosts Configuration
+
+File: `/etc/containerguard/hosts.conf`
+
+```json
+{
+  "hosts": [
+    {"name": "vm1-agent", "host": "unix:///var/run/docker.sock"},
+    {"name": "vm2-worker", "host": "tcp://192.168.217.163:2375"}
+  ]
+}
+
+Data Flow
+
+Agent starts
+    ↓
+Load hosts.conf
+    ↓
+Connect to each host
+    ↓
+For each host:
+    ↓
+Get containers → Check health → Restart if needed → Log results
+
+Auto-Cleanup Architecture
+Cleanup Pipeline
+
+Cleanup triggered
+    ↓
+Remove unused images (dangling)
+    ↓
+Remove dangling volumes
+    ↓
+Prune build cache
+    ↓
+Log results
+
+Cleanup Flow
+
+def run_cleanup(self):
+    images = cleanup_unused_images()
+    volumes = cleanup_dangling_volumes()
+    build_cache = cleanup_build_cache()
+    return {
+        "images": images,
+        "volumes": volumes,
+        "build_cache": build_cache
+    }
+
+
+
+
 ## Component Breakdown
 
 ### 1. Agent Core (`agent/core.py`)

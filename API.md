@@ -333,6 +333,75 @@ Status: success
 Time: 2026-08-29 12:22:14
 🔐 ContainerGuard Pro - Autonomous Docker Agent
 
+## Auto-Cleanup API
+
+### Cleanup Trigger (Pro)
+
+Trigger auto-cleanup manually:
+
+```bash
+python -c "
+from agent.actions import ContainerActions
+import docker
+client = docker.DockerClient(base_url='unix:///var/run/docker.sock')
+actions = ContainerActions(client)
+result = actions.run_cleanup()
+print('Cleanup result:', result)
+"
+Response:
+
+{
+  "images": 0,
+  "volumes": 1,
+  "build_cache": 0,
+  "space_freed": 0
+}
+
+Cleanup Schedule (Coming Soon)
+Configure scheduled cleanup in crontab:
+
+0 2 * * * cd /home/ruser/containerguard-new && source venv/bin/activate && python -c "from agent.actions import ContainerActions; import docker; actions = ContainerActions(docker.DockerClient()); actions.run_cleanup()"
+
+Multi-Host API
+Hosts Configuration
+File: /etc/containerguard/hosts.conf
+
+Format:
+
+{
+  "hosts": [
+    {"name": "host1", "host": "unix:///var/run/docker.sock"},
+    {"name": "host2", "host": "tcp://192.168.1.100:2375"}
+  ]
+}
+
+Add a New Host
+
+# Edit hosts.conf
+sudo vi /etc/containerguard/hosts.conf
+
+# Add new host
+{
+  "hosts": [
+    {"name": "vm1-agent", "host": "unix:///var/run/docker.sock"},
+    {"name": "vm2-worker", "host": "tcp://192.168.217.163:2375"},
+    {"name": "vm3-worker", "host": "tcp://192.168.217.170:2375"}
+  ]
+}
+
+# Restart agent
+sudo systemctl restart containerguard
+
+Verify Hosts
+
+sudo tail -20 /var/log/containerguard.log | grep -i "connected\|host"
+
+Expected:
+
+✅ Connected to vm1-agent (Docker 29.7.2)
+✅ Connected to vm2-worker (Docker 29.7.2)
+✅ Connected to vm3-worker (Docker 29.7.2)
+
 
 
 Discord Webhooks (Future)
