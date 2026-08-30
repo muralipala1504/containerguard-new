@@ -13,12 +13,15 @@ if PRO_PATH not in sys.path:
 # Import license check
 from license import check_license
 
-# Import SlackAlert from Pro repo (renamed module)
+# Import Pro features
 try:
     from pro_agent.slack import SlackAlert
-    SLACK_AVAILABLE = True
-except ImportError:
-    SLACK_AVAILABLE = False
+    from pro_agent.cleanup import AutoCleanup
+    PRO_AVAILABLE = True
+except ImportError as e:
+    PRO_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.warning(f"⚠️ Pro features not available: {e}")
 
 logger = logging.getLogger(__name__)
 
@@ -29,18 +32,19 @@ class ContainerActions:
         self.action_history = self._load_history()
         self.is_pro = check_license()
         
-        # Initialize Slack if Pro
+        # Initialize Pro features
         self.slack = None
-        if self.is_pro and SLACK_AVAILABLE:
+        self.cleanup = None
+        
+        if self.is_pro and PRO_AVAILABLE:
             try:
                 self.slack = SlackAlert()
-                logger.info("✅ Pro features enabled: Slack alerts")
+                self.cleanup = AutoCleanup(client)
+                logger.info("✅ Pro features enabled: Slack alerts, Auto-cleanup")
             except Exception as e:
-                logger.warning(f"⚠️ Slack initialization failed: {e}")
-        elif self.is_pro and not SLACK_AVAILABLE:
-            logger.warning("⚠️ Pro features not available: No module named 'pro_agent.slack'")
+                logger.warning(f"⚠️ Pro features initialization failed: {e}")
         else:
-            logger.info("ℹ️ Free tier: 7-day history limit, no Slack alerts")
+            logger.info("ℹ️ Free tier: 7-day history limit, no Pro features")
 
     def _load_history(self):
         if os.path.exists(self.history_file):
@@ -102,6 +106,17 @@ class ContainerActions:
 
     def get_history(self):
         return self.action_history
+
+    def run_cleanup(self):
+        """Run auto-cleanup (Pro only)"""
+        if self.is_pro and self.cleanup:
+            return self.cleanup.run_cleanup()
+        elif self.is_pro:
+            logger.warning("⚠️ Cleanup module not available. Check Pro repo.")
+            return None
+        else:
+            logger.info("ℹ️ Cleanup requires Pro license")
+            return None
 
     def cleanup_exited_containers(self):
         try:
