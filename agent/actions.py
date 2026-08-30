@@ -5,23 +5,25 @@ import os
 import sys
 from datetime import datetime, timedelta
 
-# Add Pro repo to path
+# Add Pro repo to path if available
 PRO_PATH = "/home/ruser/containerguard-pro"
-if PRO_PATH not in sys.path:
+if PRO_PATH not in sys.path and os.path.exists(PRO_PATH):
     sys.path.insert(0, PRO_PATH)
 
-# Import license check
-from license import check_license
+# Import license check (with fallback)
+try:
+    from license import check_license
+    LICENSE_AVAILABLE = True
+except ImportError:
+    LICENSE_AVAILABLE = False
 
-# Import Pro features
+# Import Pro features (with fallback)
 try:
     from pro_agent.slack import SlackAlert
     from pro_agent.cleanup import AutoCleanup
     PRO_AVAILABLE = True
-except ImportError as e:
+except ImportError:
     PRO_AVAILABLE = False
-    logger = logging.getLogger(__name__)
-    logger.warning(f"⚠️ Pro features not available: {e}")
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +32,11 @@ class ContainerActions:
         self.client = client
         self.history_file = "/tmp/containerguard_history.json"
         self.action_history = self._load_history()
-        self.is_pro = check_license()
+        self.is_pro = False
+        
+        # Check license if available
+        if LICENSE_AVAILABLE:
+            self.is_pro = check_license()
         
         # Initialize Pro features
         self.slack = None
