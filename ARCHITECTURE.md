@@ -538,3 +538,68 @@ The history file is stored in /tmp/ to ensure:
 ✅ Easy cleanup (if needed)
 
 Next: API.md - API reference and integration guide
+
+## 📜 Audit Logs Architecture
+
+### Overview
+
+Audit logs provide a complete audit trail of all user actions for compliance and debugging.
+
+### Data Flow
+User Action → Audit Module → /tmp/containerguard_audit.json → Dashboard Export
+
+
+
+### Log Structure
+
+```json
+{
+  "timestamp": "2026-09-08T03:53:36.239894",
+  "user": "user",
+  "action": "restart",
+  "resource": "test-nginx",
+  "details": "Container restarted manually",
+  "status": "success"
+}
+Export Formats
+Format	Usage
+CSV	Spreadsheet analysis
+JSON	Programmatic processing
+Audit Module (audit.py)
+def log_action(user, action, resource, details, status="success"):
+    """Log an action to the audit file"""
+    entry = {
+        "timestamp": datetime.now().isoformat(),
+        "user": user,
+        "action": action,
+        "resource": resource,
+        "details": details,
+        "status": status
+    }
+    # Append to JSON file
+    # Keep last 1000 entries
+🔐 Authentication Architecture (B2B)
+GitHub OAuth Flow
+1. User visits /login
+2. Redirect to GitHub
+3. User authorizes
+4. GitHub redirects back
+5. User session created
+6. Dashboard accessible
+Components
+Component	Port	Purpose
+Auth Server	7861	GitHub OAuth + session management
+Dashboard	7860	Protected UI
+Session Management
+Flask-Login for session tracking
+
+login_required decorator for protected routes
+
+Logout clears session
+
+Security
+OAuth tokens stored in environment
+
+Sessions expire after inactivity
+
+HTTPS recommended for production

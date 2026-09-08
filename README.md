@@ -351,3 +351,114 @@ Issues: GitHub Issues
 Discussions: GitHub Discussions
 
 Built with ❤️ for the Docker community
+
+## 🔐 Authentication (B2B)
+
+ContainerGuard supports GitHub OAuth for secure multi-user authentication, making it enterprise-ready.
+
+### Setup GitHub OAuth
+
+1. Create a GitHub OAuth app at https://github.com/settings/applications/new
+2. Set **Authorization callback URL** to `http://your-ip:7861/oauth2/callback`
+3. Configure environment variables:
+
+```bash
+export GITHUB_CLIENT_ID=your_client_id
+export GITHUB_CLIENT_SECRET=your_client_secret
+Restart the auth server:
+python auth.py
+Access
+Auth Server: http://your-ip:7861
+
+Dashboard: http://your-ip:7860 (after login)
+📜 Audit Logs
+All user actions are automatically logged for compliance and debugging.
+
+What's Logged
+User login/logout
+
+Container restarts (manual + auto-heal)
+
+Configuration changes
+
+Export actions
+
+Log Location
+Audit logs are stored at /tmp/containerguard_audit.json:
+{
+  "timestamp": "2026-09-08T03:53:36.239894",
+  "user": "user",
+  "action": "restart",
+  "resource": "test-nginx",
+  "status": "success"
+}
+Export
+Export audit logs from the dashboard:
+
+CSV: Download as comma-separated values
+
+JSON: Download as JSON format
+
+💎 B2B Features
+Feature	Description
+Authentication	GitHub OAuth login
+Audit Logs	Full audit trail of user actions
+Export	CSV/JSON export for compliance
+Multi-Host	Monitor multiple Docker hosts
+Auto-Heal	Automatic container recovery
+Slack Alerts	Real-time notifications (Pro)
+Auto-Cleanup	Automated disk space management (Pro)
+
+---
+
+## 📝 **Step 2: Update INSTALL.md**
+
+```bash
+cat >> /home/ruser/containerguard-new/INSTALL.md << 'EOF'
+
+## 🔐 GitHub OAuth Setup (B2B)
+
+### Step 1: Create GitHub OAuth App
+
+1. Go to https://github.com/settings/applications/new
+2. **Application name**: `ContainerGuard`
+3. **Homepage URL**: `http://your-ip:7861`
+4. **Authorization callback URL**: `http://your-ip:7861/oauth2/callback`
+5. Click **"Register application"**
+6. Copy **Client ID** and **Client Secret**
+
+### Step 2: Configure Environment
+
+```bash
+export GITHUB_CLIENT_ID=your_client_id
+export GITHUB_CLIENT_SECRET=your_client_secret
+Step 3: Start Auth Server
+cd /home/ruser/containerguard-new
+source venv/bin/activate
+python auth.py
+Step 4: Access
+Login: http://your-ip:7861
+
+Dashboard: http://your-ip:7860 (after login)
+📜 Audit Logs
+Audit logs track all user actions for compliance.
+
+Log Location
+/tmp/containerguard_audit.json
+Export
+Export logs as CSV or JSON from the dashboard.
+
+View Logs
+cat /tmp/containerguard_audit.json | jq
+🔧 Troubleshooting (B2B)
+Auth Server Not Running
+cd /home/ruser/containerguard-new
+source venv/bin/activate
+python auth.py
+Audit Logs Not Showing
+# Check if audit file exists
+ls -la /tmp/containerguard_audit.json
+
+# Trigger an action (restart a container)
+# Then check the file
+cat /tmp/containerguard_audit.json
