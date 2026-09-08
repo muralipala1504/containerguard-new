@@ -479,3 +479,52 @@ GitHub Issues: https://github.com/muralipala1504/containerguard-new/issues
 Discussions: https://github.com/muralipala1504/containerguard-new/discussions
 
 Next: ARCHITECTURE.md - Technical design and data flow
+
+---
+
+## 🔐 GitHub OAuth Setup (B2B)
+
+### Step 1: Create GitHub OAuth App
+
+1. Go to https://github.com/settings/applications/new
+2. **Application name**: `ContainerGuard`
+3. **Homepage URL**: `http://your-ip:7861`
+4. **Authorization callback URL**: `http://your-ip:7861/oauth2/callback`
+5. Click **"Register application"**
+6. Copy **Client ID** and **Client Secret**
+
+### Step 2: Configure Environment
+
+```bash
+export GITHUB_CLIENT_ID=your_client_id
+export GITHUB_CLIENT_SECRET=your_client_secret
+Step 3: Start Auth Server
+cd /home/ruser/containerguard-new
+source venv/bin/activate
+python auth.py
+Step 4: Access
+Login: http://your-ip:7861
+
+Dashboard: http://your-ip:7860 (after login)
+📜 Audit Logs
+Audit logs track all user actions for compliance.
+
+Log Location
+/tmp/containerguard_audit.json
+Export
+Export logs as CSV or JSON from the dashboard.
+
+View Logs
+cat /tmp/containerguard_audit.json | jq
+🔧 Troubleshooting (B2B)
+Auth Server Not Running
+cd /home/ruser/containerguard-new
+source venv/bin/activate
+python auth.py
+Audit Logs Not Showing
+# Check if audit file exists
+ls -la /tmp/containerguard_audit.json
+
+# Trigger an action (restart a container)
+# Then check the file
+cat /tmp/containerguard_audit.json
