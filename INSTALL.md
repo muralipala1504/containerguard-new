@@ -1,8 +1,11 @@
 # 🔧 ContainerGuard Installation Guide
 
-Detailed step-by-step instructions for installing ContainerGuard on AlmaLinux 9, Ubuntu 22.04+, or RHEL-based systems.
+Detailed step-by-step instructions for installing ContainerGuard (Free tier) on AlmaLinux 9, Ubuntu 22.04+, or RHEL-based systems.
+
+> **💎 Looking for Multi-Host, Slack alerts, or Auto-cleanup?** See [Upgrade to Pro](#-upgrade-to-containerGuard-pro) section at the end.
 
 ---
+
 ## 📋 Prerequisites
 
 | Requirement | Minimum | Recommended |
@@ -16,393 +19,255 @@ Detailed step-by-step instructions for installing ContainerGuard on AlmaLinux 9,
 
 > **Note**: The installer **automatically installs Docker** if it's not present. You don't need to install Docker manually.
 
-### Docker Auto-Installation
+---
 
-If Docker is not installed on your system, the installer will:
-1. ✅ Detect your OS (AlmaLinux, RHEL, CentOS, Ubuntu, Debian)
-2. ✅ Install Docker using the official repositories
-3. ✅ Start Docker and enable it on boot
-4. ✅ Add your user to the `docker` group
+## 🚀 Quick Install (Recommended)
 
-
-**No manual Docker installation needed!**
-
-### Pro License Configuration
-
-During installation, you'll be prompted to choose between Free and Pro:
-
-Pro License Configuration:
-
-Free tier (7-day history, no Slack alerts)
-
-Pro tier (Unlimited history + Slack alerts)
-Choose option (1-2):
-
-Free tier: 7-day history, no Slack alerts
-
-Pro tier: Unlimited history + Slack alerts + Auto-cleanup + Multi-Host
-
-Pro Features Setup
-Slack Webhook Configuration (Pro)
-
-# Add webhook to service file
-sudo tee -a /etc/systemd/system/containerguard.service << 'EOF'
-Environment="SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
-EOF
-
-sudo systemctl daemon-reload
-sudo systemctl restart containerguard
-
-Auto-Cleanup (Pro)
-Auto-cleanup removes unused Docker images, dangling volumes, and build cache automatically.
-
-Manual trigger:
-
-python -c "
-from agent.actions import ContainerActions
-import docker
-client = docker.DockerClient(base_url='unix:///var/run/docker.sock')
-actions = ContainerActions(client)
-result = actions.run_cleanup()
-print('Cleanup result:', result)
-"
-
-Scheduled cleanup (coming soon):
-
-# Add to crontab
-0 2 * * * cd /home/ruser/containerguard-new && source venv/bin/activate && python -c "from agent.actions import ContainerActions; import docker; actions = ContainerActions(docker.DockerClient()); actions.run_cleanup()"
-
-# Add to crontab
-0 2 * * * cd /home/ruser/containerguard-new && source venv/bin/activate && python -c "from agent.actions import ContainerActions; import docker; actions = ContainerActions(docker.DockerClient()); actions.run_cleanup()"
-
-Multi-Host Configuration (Pro)
-Monitor multiple Docker hosts from one dashboard:
-
-sudo mkdir -p /etc/containerguard
-sudo tee /etc/containerguard/hosts.conf << 'EOF'
-{
-  "hosts": [
-    {"name": "vm1-agent", "host": "unix:///var/run/docker.sock"},
-    {"name": "vm2-worker", "host": "tcp://192.168.217.163:2375"}
-  ]
-}
-EOF
-
-sudo systemctl restart containerguard
-
-Verify Multi-Host:
-
-sudo tail -20 /var/log/containerguard.log | grep -i "connected\|host"
-
-
-
-
-#### Manual Pro License Setup (if skipped during installation)
+### One-Line Installation
 
 ```bash
-sudo mkdir -p /etc/containerguard
-sudo tee /etc/containerguard/license.json << 'EOF'
-{
-  "tier": "pro",
-  "issued_at": "2026-08-29",
-  "expires_at": "2027-08-29"
-}
-EOF
-sudo systemctl restart containerguard
-
-Slack Webhook Configuration (Pro only)
-
-# Add webhook to service file
-sudo tee -a /etc/systemd/system/containerguard.service << 'EOF'
-Environment="SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
-EOF
-
-sudo systemctl daemon-reload
-sudo systemctl restart containerguard
-
-Note: Slack alerts are only available in the Pro tier.
-
-
-
-### Remote Docker Setup (Two VMs)
-
-If you have a separate **worker VM** (where your containers run) and a **control VM** (where ContainerGuard runs), follow these steps:
-
-#### Step 1: Expose Docker API on Worker VM
-
-```bash
-# On worker VM (where containers run)
-sudo mkdir -p /etc/systemd/system/docker.service.d
-sudo tee /etc/systemd/system/docker.service.d/override.conf << 'EOF'
-[Service]
-ExecStart=
-ExecStart=/usr/bin/dockerd -H fd:// -H tcp://0.0.0.0:2375
-EOF
-
-sudo systemctl daemon-reload
-sudo systemctl restart docker
-
-# Open firewall port
-sudo firewall-cmd --add-port=2375/tcp --permanent
-sudo firewall-cmd --reload
-
-Step 2: Configure ContainerGuard to Use Remote Docker
-For VM Installer:
-
-# During installation, select option 2
-Docker Configuration:
-  1) Local Docker (same machine) - Default
-  2) Remote Docker (different machine)
-  3) Skip (configure manually later)
-Choose option (1-3): 2
-Enter remote Docker IP: 192.168.1.100
-
-For Docker Compose:
-
-# Edit docker-compose.yml
-# Change DOCKER_HOST from local to remote
-environment:
-  - DOCKER_HOST=tcp://192.168.1.100:2375
-
-Security Note
-⚠️ For production, use TLS certificates or SSH tunneling instead of plain TCP.
-
-
-### Check Your System
-
-```bash
-# Check OS version
-cat /etc/os-release
-
-# Check Docker version
-docker --version
-
-# Check Python version
-python3 --version
-
-# Check available memory
-free -h
-🚀 Quick Install (Recommended)
-One-Line Installation
 curl -sSL https://raw.githubusercontent.com/muralipala1504/containerguard-new/master/install.sh | bash
+```
+
+### What the Installer Does
+
 The installer will:
 
-✅ Check prerequisites (Docker, Python, OS)
+- ✅ Check prerequisites (Docker, Python, OS)
+- ✅ Auto-install Docker if missing
+- ✅ Clone the repository
+- ✅ Create Python virtual environment
+- ✅ Install dependencies
+- ✅ Configure SELinux context (if enforcing)
+- ✅ Install systemd services (`containerguard` + `containerguard-dashboard`)
+- ✅ Open firewall port 7860
+- ✅ Start the agent and dashboard services
 
-✅ Clone the repository
+---
 
-✅ Create Python virtual environment
+## 📦 Manual Installation (Advanced)
 
-✅ Install dependencies (including Gradio 4.36.1)
+### 1. Clone the Repository
 
-✅ Configure SELinux context (if enforcing)
-
-✅ Ask for Docker configuration (local/remote)
-
-✅ Ask for dashboard installation
-
-✅ Install systemd service
-
-✅ Open firewall port 7860
-
-✅ Start the dashboard
-
-📦 Manual Installation (Advanced)
-1. Clone the Repository
+```bash
 cd ~
 git clone https://github.com/muralipala1504/containerguard-new.git
 cd containerguard-new
-2. Create Virtual Environment
-# Create Python virtual environment
-python3 -m venv venv
+```
 
-# Activate it
+### 2. Create Virtual Environment
+
+```bash
+python3 -m venv venv
 source venv/bin/activate
 
 # Verify Python path
 which python
-# Should show: /home/username/containerguard-new/venv/bin/python
-3. Install Dependencies
-# Install Python packages (pinned versions for compatibility)
+# Should show: /home/<username>/containerguard-new/venv/bin/python
+```
+
+### 3. Install Dependencies
+
+```bash
+pip install --upgrade pip
 pip install -r requirements.txt
 
 # Verify installation
 python -c "import docker; print('✅ Docker SDK installed')"
 python -c "import gradio; print('✅ Gradio installed')"
-4. Configure SELinux (if enabled)
+```
+
+### 4. Configure SELinux (if enabled)
+
+⚠️ **Critical Step for AlmaLinux/RHEL:**
+
+```bash
 # Check SELinux status
 getenforce
 
-# If enforcing, apply context rules
+# If enforcing, apply context rules to venv binaries
 sudo chcon -R -t bin_t venv/bin/
-sudo semanage fcontext -a -t bin_t "/home/ruser/containerguard-new/venv/bin(/.*)?"
-sudo restorecon -Rv venv/bin/
-5. Configure Docker Connection
-Option A: Local Docker (Same Machine)
-# Use default Docker socket
+
+# Apply context to wrapper scripts
+sudo chcon -t bin_t agent/runner.sh 2>/dev/null || true
+sudo chcon -t bin_t dashboard/run.sh
+
+# Verify
+ls -Z venv/bin/python
+# Should show: unconfined_u:object_r:bin_t:s0
+```
+
+### 5. Configure Docker Connection (Local Only)
+
+```bash
+# Use default Docker socket (local Docker)
 export DOCKER_HOST=unix:///var/run/docker.sock
-Option B: Remote Docker (Different Machine)
-# Enable Docker API on the worker machine
-# On the worker machine, create override file:
-sudo mkdir -p /etc/systemd/system/docker.service.d
-sudo tee /etc/systemd/system/docker.service.d/override.conf <<'DOCKEREOF'
-[Service]
-ExecStart=
-ExecStart=/usr/bin/dockerd -H fd:// -H tcp://0.0.0.0:2375
-DOCKEREOF
-sudo systemctl daemon-reload
-sudo systemctl restart docker
+```
 
-# On the agent machine, set the DOCKER_HOST
-export DOCKER_HOST=tcp://YOUR_WORKER_IP:2375
-# Replace YOUR_WORKER_IP with the actual IP address
-6. Test the Agent
-# Run a quick test
-python agent/core.py
+> **💎 Multi-Host?** Monitor containers on a **remote worker VM** — that's a Pro feature. See [Upgrade to Pro](#-upgrade-to-containerGuard-pro).
 
-# Expected output:
-# ✅ Connected to Docker
-# 📋 Container Status Summary:
-#   - test-app: running
-#   - test-postgres: exited
-#   - test-redis: running
-#   - test-nginx: running
-7. Set Up as Systemd Service
-# Copy the service file
+### 6. Set Up as Systemd Services
+
+**Step 1: Copy service files**
+
+```bash
 sudo cp deploy/containerguard.service /etc/systemd/system/
+sudo cp deploy/containerguard-dashboard.service /etc/systemd/system/
+```
 
-# Reload systemd
+**Step 2: Reload and start services**
+
+```bash
 sudo systemctl daemon-reload
-
-# Enable auto-start on boot
 sudo systemctl enable containerguard
-
-# Start the service
+sudo systemctl enable containerguard-dashboard
 sudo systemctl start containerguard
+sudo systemctl start containerguard-dashboard
+```
 
-# Check status
+**Step 3: Verify services**
+
+```bash
 sudo systemctl status containerguard
-Expected output:
-● containerguard.service - ContainerGuard Agent - Autonomous Docker Monitoring
-     Loaded: loaded (/etc/systemd/system/containerguard.service; enabled)
-     Active: active (running) since Sat 2026-08-24 05:36:58 +04
-   Main PID: 5499 (python)
-      Tasks: 1 (limit: 22905)
-     Memory: 16.1M
-     CGroup: /system.slice/containerguard.service
-             └─5499 /home/ruser/containerguard-new/venv/bin/python /home/ruser/containerguard-new/agent/runner.py
-8. Start the Dashboard
-# Run the dashboard in the background
-cd ~/containerguard-new
-source venv/bin/activate
-nohup python dashboard/app.py > dashboard.log 2>&1 &
+sudo systemctl status containerguard-dashboard
+```
 
-# Expected output:
-# Running on local URL:  http://0.0.0.0:7860
-9. Open Firewall Port (if needed)
-# Allow port 7860 (firewalld)
+### 7. Open Firewall Port
+
+```bash
+# Firewalld
 sudo firewall-cmd --add-port=7860/tcp --permanent
 sudo firewall-cmd --reload
 
-# Or for UFW
+# UFW
 sudo ufw allow 7860/tcp
 
 # Verify
 sudo firewall-cmd --list-ports
-🔧 Configuration
-Agent Configuration
-Edit agent/runner.py to customize:
-# In agent/runner.py
-# Change monitoring interval (seconds)
-AGENT_INTERVAL = 30  # Default is 30
-
-# Change Docker host
-DOCKER_HOST = 'tcp://192.168.217.163:2375'  # Replace with your Docker host
-Dashboard Configuration
-Edit dashboard/app.py:
-# Change port
-demo.launch(server_name="0.0.0.0", server_port=7860)
-# Change to port 8080 if needed
-Persistent History
-History is stored in /tmp/containerguard_history.json:
-[
-  {
-    "timestamp": "2026-08-24T05:35:57.986681",
-    "action": "restart",
-    "container": "test-postgres",
-    "status": "success"
-  }
-]
-🐛 Troubleshooting
-Issue: Service fails with "Permission denied"
-# Fix SELinux context
-sudo chcon -R -t bin_t /home/ruser/containerguard-new/venv/bin/
-sudo semanage fcontext -a -t bin_t "/home/ruser/containerguard-new/venv/bin(/.*)?"
-sudo restorecon -Rv /home/ruser/containerguard-new/venv/bin/
-## 🐛 Troubleshooting
-
-### SELinux Blocking Execution
-
-If the agent or dashboard fails with `status=203/EXEC` or `Permission denied`:
-
-```bash
-# Try SELinux permissive mode first
-sudo setenforce 0
-sudo systemctl restart containerguard
-sudo systemctl restart containerguard-dashboard
-
-# If it works, apply the permanent fix
-sudo chcon -R -t bin_t /home/ruser/containerguard-new/venv/bin/
-sudo setenforce 1
-sudo systemctl restart containerguard
-sudo systemctl restart containerguard-dashboard
-
-Dashboard Service Fails with Permission Denied
-If the dashboard service fails with Permission denied on /var/log/containerguard.log:
-
-sudo tee /etc/systemd/system/containerguard-dashboard.service > /dev/null << 'EOF'
-[Unit]
-Description=ContainerGuard Dashboard
-After=network.target containerguard.service
-Wants=containerguard.service
-
-[Service]
-Type=simple
-User=root
-Group=root
-WorkingDirectory=/home/ruser/containerguard-new
-Environment="PATH=/home/ruser/containerguard-new/venv/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStart=/home/ruser/containerguard-new/venv/bin/python /home/ruser/containerguard-new/dashboard/app.py
-Restart=always
-RestartSec=10
-StandardOutput=append:/var/log/containerguard-dashboard.log
-StandardError=append:/var/log/containerguard-dashboard-error.log
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-sudo systemctl daemon-reload
-sudo systemctl restart containerguard-dashboard
-
-Service Fails with "Permission denied" on /var/log/containerguard.log
-
-sudo touch /var/log/containerguard.log
-sudo chown ruser:ruser /var/log/containerguard.log
-sudo chmod 644 /var/log/containerguard.log
-sudo systemctl restart containerguard
-
+```
 
 ---
 
-## 🧪 **Step 7: Verify INSTALL.md**
+## 🌐 Dashboard Access
 
 ```bash
-cat ~/containerguard-new/INSTALL.md | grep -A 15 "SELinux Blocking"
+# Access the dashboard
+http://<your-ip>:7860
 
-# Restart service
+# Check if dashboard is running
+sudo systemctl status containerguard-dashboard
+
+# View dashboard logs
+sudo journalctl -u containerguard-dashboard -f
+```
+
+---
+
+## 🔍 Verification
+
+### Verify Agent is Running
+
+```bash
+# Check service status
+sudo systemctl status containerguard
+
+# Check logs
+sudo tail -20 /var/log/containerguard.log
+```
+
+**Expected output:**
+
+```
+2026-09-14 11:25:53,482 - INFO - ✅ test-app: RUNNING
+2026-09-14 11:25:53,483 - INFO - 📊 Monitored containers across 1 host, restarted 0
+2026-09-14 11:25:53,483 - INFO - ✅ Monitoring cycle completed
+```
+
+### Verify Dashboard
+
+```bash
+# Check HTTP response
+curl -s -o /dev/null -w "HTTP: %{http_code}\n" http://<your-ip>:7860
+# Expected: HTTP: 200
+
+# Check port is listening
+sudo netstat -tlnp | grep 7860
+```
+
+### Verify Persistent History
+
+```bash
+cat /tmp/containerguard_history.json
+```
+
+---
+
+## 🔧 Systemd Service Management
+
+```bash
+# Check status
+sudo systemctl status containerguard
+sudo systemctl status containerguard-dashboard
+
+# View logs
+sudo journalctl -u containerguard -f
+sudo journalctl -u containerguard-dashboard -f
+
+# Stop/Start/Restart
+sudo systemctl {stop|start|restart} containerguard
+sudo systemctl {stop|start|restart} containerguard-dashboard
+
+# Enable on boot
+sudo systemctl enable containerguard
+sudo systemctl enable containerguard-dashboard
+```
+
+---
+
+## 🐛 Common Issues & Solutions
+
+### SELinux Blocking Execution
+
+**Symptoms:** Service fails with `status=203/EXEC` or `Permission denied`
+
+**Solution:**
+
+```bash
+# Apply SELinux context to venv binaries
+sudo chcon -R -t bin_t $HOME/containerguard-new/venv/bin/
+
+# Apply to wrapper scripts
+sudo chcon -t bin_t $HOME/containerguard-new/dashboard/run.sh
+
+# Restart services
 sudo systemctl restart containerguard
-Issue: Dashboard shows "No actions recorded"
+sudo systemctl restart containerguard-dashboard
+```
+
+### Service Fails to Start
+
+**Symptoms:** Service shows errors about missing files or paths
+
+**Solution:**
+
+```bash
+# Check the actual error
+sudo journalctl -u containerguard -n 20 --no-pager
+
+# Verify service file is correct
+cat /etc/systemd/system/containerguard.service | grep -E "User|Group|WorkingDirectory|ExecStart"
+
+# Restart services
+sudo systemctl daemon-reload
+sudo systemctl restart containerguard
+sudo systemctl restart containerguard-dashboard
+```
+
+### Dashboard Shows "No actions recorded"
+
+**Solution:**
+
+```bash
 # Check if history file exists
 cat /tmp/containerguard_history.json
 
@@ -412,119 +277,97 @@ sudo systemctl restart containerguard
 # Wait 60 seconds and check again
 sleep 60
 cat /tmp/containerguard_history.json
-Issue: Dashboard not accessible
-# Check if dashboard is running
-ps aux | grep dashboard/app.py
+```
 
-# Check port binding
-sudo netstat -tlnp | grep 7860
+### Gradio Import Error (HfFolder)
 
-# Check firewall
-sudo firewall-cmd --list-ports
+**Symptoms:** `ImportError: cannot import name 'HfFolder' from 'huggingface_hub'`
 
-# If not running, start it
-cd ~/containerguard-new
-source venv/bin/activate
-nohup python dashboard/app.py > dashboard.log 2>&1 &
-Issue: Agent not monitoring containers
-# Check logs
-sudo journalctl -u containerguard -f
+**Solution:**
 
-# Check Docker connection
-python -c "import docker; c=docker.DockerClient(base_url='tcp://YOUR_IP:2375'); print(c.containers.list())"
-✅ Verification
-Verify Agent is Running
-# Check service status
-sudo systemctl status containerguard
-
-# Check logs
-sudo tail -20 /var/log/containerguard.log
-Expected output:
-2026-08-24 05:36:58 - INFO - ✅ Connected to Docker at tcp://192.168.217.163:2375
-2026-08-24 05:36:58 - INFO - 🔄 Cycle 1 starting...
-2026-08-24 05:36:58 - INFO - ✅ test-app: RUNNING
-2026-08-24 05:36:58 - WARNING - ⚠️ test-postgres: EXITED - Attempting restart...
-2026-08-24 05:36:58 - INFO - ✅ Restarted container: test-postgres
-Verify Dashboard
-Open browser: http://<agent-ip>:7860
-
-Should see container status and action history
-
-Try clicking "Refresh Status"
-Verify Persistent History
-# Check history file
-cat /tmp/containerguard_history.json
-📦 Uninstallation
-# Stop and disable service
-sudo systemctl stop containerguard
-sudo systemctl disable containerguard
-
-# Remove service file
-sudo rm /etc/systemd/system/containerguard.service
-sudo systemctl daemon-reload
-
-# Remove installation directory
-rm -rf ~/containerguard-new
-
-# Remove logs
-sudo rm -f /var/log/containerguard*.log
-📚 Next Steps
-□ Configure alerts (Slack/Discord)
-□ Customize monitoring rules
-□ Scale to multiple Docker hosts
-□ Integrate with Prometheus
-🆘 Need Help?
-GitHub Issues: https://github.com/muralipala1504/containerguard-new/issues
-
-Discussions: https://github.com/muralipala1504/containerguard-new/discussions
-
-Next: ARCHITECTURE.md - Technical design and data flow
+```bash
+cd $HOME/containerguard-new && source venv/bin/activate
+pip install gradio==4.44.1 huggingface-hub==0.23.4
+sudo systemctl restart containerguard-dashboard
+```
 
 ---
 
-## 🔐 GitHub OAuth Setup (B2B)
+## 📁 Persistent History
 
-### Step 1: Create GitHub OAuth App
+History is stored in `/tmp/containerguard_history.json`:
 
-1. Go to https://github.com/settings/applications/new
-2. **Application name**: `ContainerGuard`
-3. **Homepage URL**: `http://your-ip:7861`
-4. **Authorization callback URL**: `http://your-ip:7861/oauth2/callback`
-5. Click **"Register application"**
-6. Copy **Client ID** and **Client Secret**
+```json
+[
+  {
+    "timestamp": "2026-09-14T05:35:57.986681",
+    "action": "restart",
+    "container": "test-postgres",
+    "status": "success"
+  }
+]
+```
 
-### Step 2: Configure Environment
+> **Note:** Free tier keeps 7 days of history. **Pro tier** keeps unlimited history.
+
+---
+
+## 📦 Uninstallation
 
 ```bash
-export GITHUB_CLIENT_ID=your_client_id
-export GITHUB_CLIENT_SECRET=your_client_secret
-Step 3: Start Auth Server
-cd /home/ruser/containerguard-new
-source venv/bin/activate
-python auth.py
-Step 4: Access
-Login: http://your-ip:7861
+# Stop and disable services
+sudo systemctl stop containerguard
+sudo systemctl stop containerguard-dashboard
+sudo systemctl disable containerguard
+sudo systemctl disable containerguard-dashboard
 
-Dashboard: http://your-ip:7860 (after login)
-📜 Audit Logs
-Audit logs track all user actions for compliance.
+# Remove service files
+sudo rm /etc/systemd/system/containerguard.service
+sudo rm /etc/systemd/system/containerguard-dashboard.service
+sudo systemctl daemon-reload
 
-Log Location
-/tmp/containerguard_audit.json
-Export
-Export logs as CSV or JSON from the dashboard.
+# Remove installation directory
+rm -rf $HOME/containerguard-new
 
-View Logs
-cat /tmp/containerguard_audit.json | jq
-🔧 Troubleshooting (B2B)
-Auth Server Not Running
-cd /home/ruser/containerguard-new
-source venv/bin/activate
-python auth.py
-Audit Logs Not Showing
-# Check if audit file exists
-ls -la /tmp/containerguard_audit.json
+# Remove logs
+sudo rm -f /var/log/containerguard*.log
+```
 
-# Trigger an action (restart a container)
-# Then check the file
-cat /tmp/containerguard_audit.json
+---
+
+## 💎 Upgrade to ContainerGuard Pro
+
+Ready for production? ContainerGuard Pro adds:
+
+| Feature | Free | **Pro** |
+|---------|:----:|:-------:|
+| Container monitoring | ✅ | ✅ |
+| Auto-restart | ✅ | ✅ |
+| Web dashboard | ✅ | ✅ |
+| Action history | 7 days | ✅ **Unlimited** |
+| **Multi-Host** (control + workers) | ❌ | ✅ |
+| **Slack alerts** | ❌ | ✅ |
+| **Auto-cleanup** | ❌ | ✅ |
+| **GitHub OAuth** | ❌ | ✅ |
+
+### 🔓 Get Pro Access
+
+- 📧 Contact: **muralipala15@gmail.com**
+- 📝 Include your GitHub username
+- 🔑 Receive invite to the private Pro repository
+
+---
+
+## 📚 Next Steps
+
+- [ ] Test auto-heal by stopping a container
+- [ ] Configure monitoring interval
+- [ ] (Optional) Upgrade to Pro for Multi-Host support
+
+---
+
+## 🆘 Need Help?
+
+- **Issues**: https://github.com/muralipala1504/containerguard-new/issues
+- **Discussions**: https://github.com/muralipala1504/containerguard-new/discussions
+- **Pro Access**: muralipala15@gmail.com
