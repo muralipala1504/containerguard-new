@@ -1,5 +1,5 @@
 #!/bin/bash
-# ContainerGuard - One-Line Installer
+# ContainerGuard - One-Line Installer (Free Tier)
 # Usage: curl -sSL https://raw.githubusercontent.com/muralipala1504/containerguard-new/master/install.sh | bash
 
 set -e
@@ -17,7 +17,7 @@ print_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
 
 echo "═══════════════════════════════════════════════════════════════"
 echo "  🔐 ContainerGuard - Autonomous Docker Agent"
-echo "  Version: 1.0.0"
+echo "  Version: 1.0.0 (Free Tier)"
 echo "═══════════════════════════════════════════════════════════════"
 echo ""
 
@@ -37,11 +37,11 @@ else
     print_error "Cannot detect OS."
     exit 1
 fi
+
 # Check and install Docker if missing
 if ! command -v docker &> /dev/null; then
     print_warning "Docker is not installed. Installing..."
-    
-    # Detect OS and install Docker
+
     if [[ "$ID" == "almalinux" ]] || [[ "$ID" == "rhel" ]] || [[ "$ID" == "centos" ]]; then
         sudo dnf install -y dnf-utils
         sudo dnf config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
@@ -53,7 +53,7 @@ if ! command -v docker &> /dev/null; then
         print_error "Unsupported OS. Please install Docker manually."
         exit 1
     fi
-    
+
     sudo systemctl enable --now docker
     sudo usermod -aG docker $INSTALL_USER
     print_success "Docker installed successfully"
@@ -61,7 +61,6 @@ else
     DOCKER_VERSION=$(docker --version | cut -d' ' -f3 | tr -d ',')
     print_success "Docker found: $DOCKER_VERSION"
 fi
-print_success "Docker found: $(docker --version | cut -d' ' -f3 | tr -d ',')"
 
 if ! command -v python3 &> /dev/null; then
     print_error "Python 3 is not installed."
@@ -100,6 +99,7 @@ sudo chmod -R 755 "$INSTALL_DIR/venv/bin/"
 if command -v getenforce &> /dev/null && [[ $(getenforce) == "Enforcing" ]]; then
     print_info "SELinux is enforcing - applying context rules..."
     sudo chcon -R -t bin_t "$INSTALL_DIR/venv/bin/"
+    sudo chcon -t bin_t "$INSTALL_DIR/dashboard/run.sh" 2>/dev/null || true
     if command -v semanage &> /dev/null; then
         sudo semanage fcontext -a -t bin_t "$INSTALL_DIR/venv/bin(/.*)?" 2>/dev/null || true
         sudo restorecon -Rv "$INSTALL_DIR/venv/bin/" 2>/dev/null || true
@@ -114,49 +114,22 @@ print_info "Testing Docker connection..."
 if python -c "import docker; c=docker.DockerClient(base_url='unix:///var/run/docker.sock'); c.ping()" 2>/dev/null; then
     print_success "Docker connection successful"
 else
-    print_warning "Cannot connect to local Docker. If using remote Docker, configure DOCKER_HOST."
+    print_warning "Cannot connect to local Docker yet - will retry after service starts"
 fi
-
-echo ""
-print_info "Docker Configuration:"
-echo "  1) Local Docker (same machine) - Default"
-echo "  2) Remote Docker (different machine)"
-echo "  3) Skip (configure manually later)"
-read -p "Choose option (1-3): " DOCKER_OPTION </dev/tty
-
-case $DOCKER_OPTION in
-    1) print_info "Using local Docker" ;;
-    2) read -p "Enter remote Docker IP: " REMOTE_IP </dev/tty
-       echo "export DOCKER_HOST=tcp://$REMOTE_IP:2375" >> "$INSTALL_DIR/.env" ;;
-    3) print_info "Skipping Docker configuration." ;;
-    *) print_warning "Invalid option. Using local Docker." ;;
-esac
 
 echo ""
 print_info "Install Gradio Dashboard?"
 echo "  1) Yes (recommended)"
 echo "  2) No (agent only)"
 read -p "Choose option (1-2): " DASHBOARD_OPTION </dev/tty
-# Step 7: Pro License Configuration
-echo ""
-print_info "Pro License Configuration:"
-echo "  1) Free tier (7-day history, no Slack alerts)"
-echo "  2) Pro tier (Unlimited history + Slack alerts)"
-read -p "Choose option (1-2): " LICENSE_OPTION </dev/tty
 
-if [[ "$LICENSE_OPTION" == "2" ]]; then
-    print_info "Configuring Pro license..."
-    sudo mkdir -p /etc/containerguard
-    sudo tee /etc/containerguard/license.json << 'EOF'
-{
-  "tier": "pro",
-  "issued_at": "2026-08-29",
-  "expires_at": "2027-08-29"
-}
-EOF
-    print_success "Pro license configured"
-    print_info "Please set SLACK_WEBHOOK_URL in /etc/systemd/system/containerguard.service"
-fi
+# Create .env with local Docker config
+cat > "$INSTALL_DIR/.env" << 'ENVEOF'
+DOCKER_HOST=unix:///var/run/docker.sock
+AGENT_INTERVAL=30
+LOG_LEVEL=INFO
+ENVEOF
+
 print_info "Installing systemd service..."
 sudo cp deploy/containerguard.service /etc/systemd/system/
 sudo systemctl daemon-reload
@@ -194,12 +167,6 @@ if [[ "$DASHBOARD_OPTION" == "1" ]]; then
     fi
 fi
 
-cat > "$INSTALL_DIR/.env" << 'ENVEOF'
-DOCKER_HOST=unix:///var/run/docker.sock
-AGENT_INTERVAL=30
-LOG_LEVEL=INFO
-ENVEOF
-
 sudo chown -R $INSTALL_USER:$INSTALL_USER "$INSTALL_DIR"
 
 echo ""
@@ -226,10 +193,14 @@ if [[ "$DASHBOARD_OPTION" == "1" ]]; then
 fi
 echo ""
 echo "📖 Documentation:"
-echo "  README.md      - Project overview"
-echo "  INSTALL.md     - Detailed installation"
+echo "  README.md       - Project overview"
+echo "  INSTALL.md      - Detailed installation"
 echo "  ARCHITECTURE.md - Technical design"
-echo "  API.md         - API reference"
+echo "  API.md          - API reference"
+echo ""
+echo "💎 Want Multi-Host, Slack alerts, or Auto-cleanup?"
+echo "   → Upgrade to ContainerGuard Pro"
+echo "   → Contact: muralipala15@gmail.com"
 echo ""
 echo "🔗 GitHub: https://github.com/muralipala1504/containerguard-new"
 echo "═══════════════════════════════════════════════════════════════"
