@@ -177,6 +177,7 @@ echo ""
 echo "📋 Installation Summary:"
 echo "  📁 Location: $INSTALL_DIR"
 echo "  🔧 Service: containerguard (systemd)"
+
 if [[ "$DASHBOARD_OPTION" == "1" ]]; then
     echo "  📊 Dashboard: http://$(hostname -I | awk '{print $1}'):7860"
 else
@@ -186,6 +187,10 @@ echo "  📝 Logs: /var/log/containerguard.log"
 echo "  🔐 Status: sudo systemctl status containerguard"
 echo ""
 echo "📚 Useful Commands:"
+echo ""
+print_warning "⚠️  IMPORTANT: Docker group changes require a new session!"
+echo "   Run 'newgrp docker' or log out and back in to use Docker without sudo."
+echo ""
 echo "  sudo systemctl status containerguard  # Check service status"
 echo "  sudo journalctl -u containerguard -f  # View logs"
 if [[ "$DASHBOARD_OPTION" == "1" ]]; then
