@@ -2,6 +2,7 @@
 
 **Autonomous Docker Agent** - Monitors containers and performs auto-healing on a single Docker host without human intervention.
 
+[![Release](https://img.shields.io/github/v/release/muralipala1504/containerguard-new?label=release&color=blue)](https://github.com/muralipala1504/containerguard-new/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![Docker](https://img.shields.io/badge/docker-required-blue.svg)](https://www.docker.com/)
